@@ -2,6 +2,7 @@
 package tc
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -32,6 +33,8 @@ var (
 	HTBDEFAULTCLASS        = 30
 )
 
+var errQdiscNotFound = errors.New("qdisc not found")
+
 func AddRule(iface string, target netip.Prefix, priority Priority) error {
 	var err error
 	switch priority {
@@ -47,10 +50,16 @@ func AddRule(iface string, target netip.Prefix, priority Priority) error {
 		return err
 	}
 
-	err = createQdisc(iface)
+	_, err = getQdisc()
 	if err != nil {
-		return err
+		if errors.Is(err, errQdiscNotFound) {
+			err = createQdisc(iface)
+		}
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -222,4 +231,32 @@ func createQdisc(iface string) error {
 	}
 
 	return nil
+}
+
+func getQdisc() (tc.Object, error) {
+	tcnl, err := tc.Open(&tc.Config{})
+	if err != nil {
+		return tc.Object{}, err
+	}
+	qdiscs, err := tcnl.Qdisc().Get()
+	if err != nil {
+		return tc.Object{}, err
+	}
+
+	if len(qdiscs) == 0 {
+		return tc.Object{}, errQdiscNotFound
+	}
+
+	for _, qdisc := range qdiscs {
+		if qdisc.Kind != "htb" {
+			continue
+		}
+		if qdisc.Handle != HTBQDISCHANDLE {
+			continue
+		}
+		fmt.Println("Qdisc found")
+		return qdisc, nil
+	}
+
+	return tc.Object{}, errQdiscNotFound
 }
