@@ -14,9 +14,16 @@ func FlushRules(iface string) error {
 		return err
 	}
 
-	qdisc, err := getQdisc(tcnl)
+	defer func() {
+		closeErr := tcnl.Close()
+		if closeErr != nil {
+			err = fmt.Errorf("%w", closeErr)
+		}
+	}()
+
+	qdisc, err := RootQdisc(tcnl, iface)
 	if err != nil {
-		if !errors.Is(err, errQdiscNotFound) {
+		if !errors.Is(err, ErrQdiscNotFound) {
 			return err
 		}
 	}
@@ -26,7 +33,6 @@ func FlushRules(iface string) error {
 			return err
 		}
 	}
-
 	return filter.DeleteTable()
 }
 
