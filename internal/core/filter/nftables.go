@@ -64,6 +64,30 @@ func AddTargetToLowPriority(target netip.Addr) error {
 	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.lowPrioSet, target)
 }
 
+func DeleteTable() error {
+	conn, err := nftables.New()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Looking up qosm table on system")
+
+	tables, err := conn.ListTables()
+	if err != nil {
+		return err
+	}
+
+	for _, table := range tables {
+		if table.Name == TABLENAME {
+
+			fmt.Println("Deleting table")
+			conn.DelTable(table)
+		}
+	}
+
+	return conn.Flush()
+}
+
 func newCtx() (Ctx, error) {
 	conn, err := nftables.New()
 	if err != nil {

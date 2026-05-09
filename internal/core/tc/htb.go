@@ -35,8 +35,12 @@ var (
 
 var errQdiscNotFound = errors.New("qdisc not found")
 
-func AddRule(iface string, target netip.Prefix, priority Priority) error {
-	var err error
+func AddRule(iface string, target netip.Prefix, priority Priority) (err error) {
+	_, _, err = InitQdisc(iface)
+	if err != nil {
+		return err
+	}
+
 	switch priority {
 	case PRIORITYHIGH:
 		err = filter.AddTargetToHighPriority(target.Addr())
@@ -45,42 +49,52 @@ func AddRule(iface string, target netip.Prefix, priority Priority) error {
 	default:
 		return fmt.Errorf("unknown priority %v", priority)
 	}
-
 	if err != nil {
 		return err
-	}
-
-	_, err = getQdisc()
-	if err != nil {
-		if errors.Is(err, errQdiscNotFound) {
-			err = createQdisc(iface)
-		}
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func createQdisc(iface string) error {
+func InitQdisc(iface string) (*tc.Tc, *tc.Object, error) {
+	var err error
+	conn, err := tc.Open(&tc.Config{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer func() {
+		closeErr := conn.Close()
+		if closeErr != nil {
+			err = fmt.Errorf("%w", closeErr)
+		}
+	}()
+
+	qdisc, err := getQdisc(conn)
+	if err != nil {
+		if errors.Is(err, errQdiscNotFound) {
+			qdisc, err = createQdisc(conn, iface)
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return conn, qdisc, nil
+}
+
+func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 	if iface == "" {
-		return fmt.Errorf("no interface given")
+		return nil, fmt.Errorf("no interface given")
 	}
 	devID, err := net.InterfaceByName(iface)
 	if err != nil {
-		return err
-	}
-
-	fmt.Println()
-	tcnl, err := tc.Open(&tc.Config{})
-	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = tcnl.SetOption(netlink.ExtendedAcknowledge, true) // for better error messages
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	rootQdisc := tc.Object{
@@ -104,7 +118,7 @@ func createQdisc(iface string) error {
 
 	fmt.Println("Adding Root Qdisc")
 	if err := tcnl.Qdisc().Add(&rootQdisc); err != nil {
-		return err
+		return nil, err
 	}
 
 	highClass := tc.Object{
@@ -131,7 +145,7 @@ func createQdisc(iface string) error {
 	}
 	fmt.Println("Adding High Class")
 	if err := tcnl.Class().Add(&highClass); err != nil {
-		return err
+		return nil, err
 	}
 
 	lowClass := tc.Object{
@@ -158,7 +172,7 @@ func createQdisc(iface string) error {
 	}
 	fmt.Println("Adding Low Class")
 	if err := tcnl.Class().Add(&lowClass); err != nil {
-		return err
+		return nil, err
 	}
 
 	defaultClass := tc.Object{
@@ -186,7 +200,7 @@ func createQdisc(iface string) error {
 
 	fmt.Println("Adding default Class")
 	if err := tcnl.Class().Add(&defaultClass); err != nil {
-		return err
+		return nil, err
 	}
 
 	highPriofilter := tc.Object{
@@ -206,7 +220,7 @@ func createQdisc(iface string) error {
 	}
 	fmt.Println("Adding high filter")
 	if err := tcnl.Filter().Add(&highPriofilter); err != nil {
-		return err
+		return nil, err
 	}
 
 	lowPrioFilter := tc.Object{
@@ -227,24 +241,20 @@ func createQdisc(iface string) error {
 
 	fmt.Println("Adding low filter")
 	if err := tcnl.Filter().Add(&lowPrioFilter); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &rootQdisc, nil
 }
 
-func getQdisc() (tc.Object, error) {
-	tcnl, err := tc.Open(&tc.Config{})
-	if err != nil {
-		return tc.Object{}, err
-	}
+func getQdisc(tcnl *tc.Tc) (*tc.Object, error) {
 	qdiscs, err := tcnl.Qdisc().Get()
 	if err != nil {
-		return tc.Object{}, err
+		return nil, err
 	}
 
 	if len(qdiscs) == 0 {
-		return tc.Object{}, errQdiscNotFound
+		return nil, errQdiscNotFound
 	}
 
 	for _, qdisc := range qdiscs {
@@ -255,8 +265,8 @@ func getQdisc() (tc.Object, error) {
 			continue
 		}
 		fmt.Println("Qdisc found")
-		return qdisc, nil
+		return &qdisc, nil
 	}
 
-	return tc.Object{}, errQdiscNotFound
+	return nil, errQdiscNotFound
 }
