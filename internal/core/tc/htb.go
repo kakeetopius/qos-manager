@@ -26,11 +26,17 @@ const (
 )
 
 var (
-	HTBQDISCHANDLE         = core.BuildHandle(0x01, 0x00)
-	HTBHIGHPRIOCLASSHANDLE = core.BuildHandle(0x01, 0x10)
-	HTBLOWPRIOCLASSHANDLE  = core.BuildHandle(0x01, 0x20)
-	HTBDEFAULTCLASSHANDLE  = core.BuildHandle(0x01, 0x30)
-	HTBDEFAULTCLASS        = 30
+	HTBQDISCHANDLE         = core.BuildHandle(0x1, 0x0)
+	HTBPARENTCLASSHANDLE   = core.BuildHandle(0x1, 0x1)
+	HTBHIGHPRIOCLASSHANDLE = core.BuildHandle(0x1, 0x10)
+	HTBDEFAULTCLASSHANDLE  = core.BuildHandle(0x1, 0x15)
+	HTBLOWPRIOCLASSHANDLE  = core.BuildHandle(0x1, 0x19)
+
+	HTBDEFAULTCLASS = 0x15
+
+	HTBHIGHCLASSPRIO    = 0
+	HTBDEFAULTCLASSPRIO = 2
+	HTBLOWCLASSPRIO     = 4
 )
 
 var errQdiscNotFound = errors.New("qdisc not found")
@@ -97,7 +103,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 		return nil, err
 	}
 
-	rootQdisc := tc.Object{
+	rootHtbQdisc := tc.Object{
 		Msg: tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(devID.Index),
@@ -117,7 +123,39 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 	}
 
 	fmt.Println("Adding Root Qdisc")
-	if err := tcnl.Qdisc().Add(&rootQdisc); err != nil {
+	if err := tcnl.Qdisc().Add(&rootHtbQdisc); err != nil {
+		return nil, err
+	}
+
+	htbParentClass := tc.Object{
+		Msg: tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(devID.Index),
+			Handle:  HTBPARENTCLASSHANDLE,
+			Parent:  HTBQDISCHANDLE,
+			Info:    0,
+		},
+		Attribute: tc.Attribute{
+			Kind: "htb",
+			Htb: &tc.Htb{
+				Init: &tc.HtbGlob{
+					Version: 0x3,
+				},
+				Parms: &tc.HtbOpt{
+					Rate: tc.RateSpec{
+						Rate: 10000000,
+					},
+					Ceil: tc.RateSpec{
+						Rate: 10000000,
+					},
+					Prio: uint32(HTBHIGHCLASSPRIO),
+				},
+			},
+		},
+	}
+
+	fmt.Println("Adding Parent Class.")
+	if err := tcnl.Class().Add(&htbParentClass); err != nil {
 		return nil, err
 	}
 
@@ -139,6 +177,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 					Ceil: tc.RateSpec{
 						Rate: 5000000,
 					},
+					Prio: uint32(HTBHIGHCLASSPRIO),
 				},
 			},
 		},
@@ -153,7 +192,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(devID.Index),
 			Handle:  HTBLOWPRIOCLASSHANDLE,
-			Parent:  HTBQDISCHANDLE,
+			Parent:  HTBPARENTCLASSHANDLE,
 			Info:    0,
 		},
 		Attribute: tc.Attribute{
@@ -166,6 +205,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 					Ceil: tc.RateSpec{
 						Rate: 1000000,
 					},
+					Prio: uint32(HTBLOWCLASSPRIO),
 				},
 			},
 		},
@@ -180,7 +220,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(devID.Index),
 			Handle:  HTBDEFAULTCLASSHANDLE,
-			Parent:  HTBQDISCHANDLE,
+			Parent:  HTBPARENTCLASSHANDLE,
 			Info:    0,
 		},
 		Attribute: tc.Attribute{
@@ -193,6 +233,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 					Ceil: tc.RateSpec{
 						Rate: 1000000,
 					},
+					Prio: uint32(HTBDEFAULTCLASSPRIO),
 				},
 			},
 		},
@@ -244,7 +285,7 @@ func createQdisc(tcnl *tc.Tc, iface string) (*tc.Object, error) {
 		return nil, err
 	}
 
-	return &rootQdisc, nil
+	return &rootHtbQdisc, nil
 }
 
 func getQdisc(tcnl *tc.Tc) (*tc.Object, error) {
