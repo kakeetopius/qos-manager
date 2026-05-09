@@ -3,7 +3,6 @@ package filter
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net/netip"
 
@@ -15,19 +14,37 @@ type NftablesCtx struct {
 	conn  *nftables.Conn
 	table *nftables.Table
 	chain *nftables.Chain
-	rule  *nftables.Rule
-	ipSet *nftables.Set
+
+	QoSMRules
+	QoSMSets
 }
 
-var errEntityNotFound = errors.New("entity not found")
+type QoSMSets struct {
+	highPrioSet *nftables.Set
+	lowPrioSet  *nftables.Set
+}
 
-func MarkPacketHighPriority(target netip.Addr) error {
+type QoSMRules struct {
+	highPrioRule *nftables.Rule
+	lowPrioRule  *nftables.Rule
+}
+
+func AddTargetToHighPriority(target netip.Addr) error {
 	nftablesCtx, err := newCtx()
 	if err != nil {
 		return err
 	}
 
-	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.ipSet, target)
+	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.highPrioSet, target)
+}
+
+func AddTargetToLowPriority(target netip.Addr) error {
+	nftablesCtx, err := newCtx()
+	if err != nil {
+		return err
+	}
+
+	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.lowPrioSet, target)
 }
 
 func newCtx() (NftablesCtx, error) {
@@ -38,53 +55,30 @@ func newCtx() (NftablesCtx, error) {
 
 	table, err := lookupQoSMTable(conn)
 	if err != nil {
-		if !errors.Is(err, errEntityNotFound) {
-			return NftablesCtx{}, err
-		}
-		table, err = addNewQoSMTable(conn)
-		if err != nil {
-			return NftablesCtx{}, err
-		}
+		return NftablesCtx{}, nil
 	}
+
 	chain, err := lookupQoSMChain(conn, table)
 	if err != nil {
-		if !errors.Is(err, errEntityNotFound) {
-			return NftablesCtx{}, err
-		}
-		chain, err = addNewQosMChain(conn, table)
-		if err != nil {
-			return NftablesCtx{}, err
-		}
+		return NftablesCtx{}, nil
 	}
 
-	ipSet, err := lookupQoSMIPSet(conn, table)
+	ipSets, err := lookupQoSMIPSets(conn, table)
 	if err != nil {
-		if !errors.Is(err, errEntityNotFound) {
-			return NftablesCtx{}, err
-		}
-		ipSet, err = addQoSMIPSet(conn, table)
-		if err != nil {
-			return NftablesCtx{}, err
-		}
+		return NftablesCtx{}, nil
 	}
 
-	rule, err := lookupQoSMRules(conn, table, chain)
+	rules, err := lookupQoSMRules(conn, table, chain, ipSets)
 	if err != nil {
-		if !errors.Is(err, errEntityNotFound) {
-			return NftablesCtx{}, err
-		}
-		rule, err = addNewQoSMRule(conn, table, chain, ipSet)
-		if err != nil {
-			return NftablesCtx{}, err
-		}
+		return NftablesCtx{}, nil
 	}
 
 	return NftablesCtx{
-		conn:  conn,
-		table: table,
-		chain: chain,
-		ipSet: ipSet,
-		rule:  rule,
+		conn:      conn,
+		table:     table,
+		chain:     chain,
+		QoSMRules: rules,
+		QoSMSets:  ipSets,
 	}, nil
 }
 
@@ -102,7 +96,7 @@ func lookupQoSMTable(conn *nftables.Conn) (*nftables.Table, error) {
 		}
 	}
 
-	return nil, errEntityNotFound
+	return addNewQoSMTable(conn)
 }
 
 func addNewQoSMTable(conn *nftables.Conn) (*nftables.Table, error) {
@@ -137,7 +131,7 @@ func lookupQoSMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chai
 		}
 	}
 
-	return nil, errEntityNotFound
+	return addNewQosMChain(conn, table)
 }
 
 func addNewQosMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chain, error) {
@@ -158,29 +152,55 @@ func addNewQosMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chai
 	return chain, nil
 }
 
-func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain) (*nftables.Rule, error) {
+func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets QoSMSets) (QoSMRules, error) {
 	fmt.Println("Looking up qosm rules")
 
 	rules, err := conn.GetRules(table, chain)
 	if err != nil {
-		return nil, err
+		return QoSMRules{}, err
 	}
 
-	if len(rules) == 0 {
-		return nil, errEntityNotFound
+	var highPrioRule *nftables.Rule
+	var lowPrioRule *nftables.Rule
+
+	for _, rule := range rules {
+		if string(rule.UserData) == "high_prio_rule" {
+			highPrioRule = rule
+		}
+		if string(rule.UserData) == "low_prio_rule" {
+			lowPrioRule = rule
+		}
 	}
 
-	return rules[0], nil
+	if highPrioRule == nil {
+		highPrioRule, err = addMarkingRule(conn, table, chain, ipSets.highPrioSet, 10, "high_prio_rule")
+		if err != nil {
+			return QoSMRules{}, err
+		}
+	}
+
+	if lowPrioRule == nil {
+		lowPrioRule, err = addMarkingRule(conn, table, chain, ipSets.lowPrioSet, 20, "low_prio_rule")
+		if err != nil {
+			return QoSMRules{}, err
+		}
+	}
+
+	return QoSMRules{
+		highPrioRule: highPrioRule,
+		lowPrioRule:  lowPrioRule,
+	}, nil
 }
 
-func addNewQoSMRule(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSet *nftables.Set) (*nftables.Rule, error) {
-	fmt.Println("Adding QoSM rule")
-	mark := make([]byte, 4)
-	binary.LittleEndian.PutUint32(mark, 10)
+func addMarkingRule(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSet *nftables.Set, mark int, ruleName string) (*nftables.Rule, error) {
+	fmt.Println("Adding ", ruleName, " QoSM rule")
+	byteMark := make([]byte, 4)
+	binary.LittleEndian.PutUint32(byteMark, uint32(mark))
 
 	rule := conn.AddRule(&nftables.Rule{
-		Table: table,
-		Chain: chain,
+		Table:    table,
+		Chain:    chain,
+		UserData: []byte(ruleName),
 		Exprs: []expr.Any{
 			// Load the dst IP in packet into register 1.
 			&expr.Payload{
@@ -200,7 +220,7 @@ func addNewQoSMRule(conn *nftables.Conn, table *nftables.Table, chain *nftables.
 			// Load the mark into register 1
 			&expr.Immediate{
 				Register: 1,
-				Data:     mark,
+				Data:     byteMark,
 			},
 
 			// Set the mark field in the metadata with what is in register 1.
@@ -214,6 +234,7 @@ func addNewQoSMRule(conn *nftables.Conn, table *nftables.Table, chain *nftables.
 			&expr.Counter{},
 		},
 	})
+
 	err := conn.Flush()
 	if err != nil {
 		return nil, err
@@ -222,34 +243,55 @@ func addNewQoSMRule(conn *nftables.Conn, table *nftables.Table, chain *nftables.
 	return rule, nil
 }
 
-func lookupQoSMIPSet(conn *nftables.Conn, table *nftables.Table) (*nftables.Set, error) {
+func lookupQoSMIPSets(conn *nftables.Conn, table *nftables.Table) (QoSMSets, error) {
 	fmt.Println("Looking up IP Set")
 
 	sets, err := conn.GetSets(table)
 	if err != nil {
-		return nil, err
+		return QoSMSets{}, err
 	}
 
+	var highPrio *nftables.Set
+	var lowPrio *nftables.Set
+
 	for _, set := range sets {
-		if set.Name == "matched_ips" {
-			return set, nil
+		if set.Name == "high_prio_ips" {
+			highPrio = set
+		}
+		if set.Name == "low_prio_ips" {
+			lowPrio = set
 		}
 	}
 
-	return nil, errEntityNotFound
+	if highPrio == nil {
+		highPrio, err = addQoSMIPSet(conn, table, "high_prio_ips")
+		if err != nil {
+			return QoSMSets{}, err
+		}
+	}
+	if lowPrio == nil {
+		lowPrio, err = addQoSMIPSet(conn, table, "low_prio_ips")
+		if err != nil {
+			return QoSMSets{}, err
+		}
+	}
+
+	return QoSMSets{
+		highPrioSet: highPrio,
+		lowPrioSet:  lowPrio,
+	}, nil
 }
 
-func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table) (*nftables.Set, error) {
-	fmt.Println("Adding QoSM IP Set")
-	ipSet := &nftables.Set{
+func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table, name string) (*nftables.Set, error) {
+	fmt.Println("Adding QoSM IP Sets")
+	set := &nftables.Set{
 		Table:   table,
-		Name:    "matched_ips",
+		Name:    name,
 		KeyType: nftables.TypeIPAddr,
 	}
 	ipSetElements := []nftables.SetElement{}
 
-	fmt.Println("Adding IP Set")
-	err := conn.AddSet(ipSet, ipSetElements)
+	err := conn.AddSet(set, ipSetElements)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +301,7 @@ func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table) (*nftables.Set, er
 		return nil, err
 	}
 
-	return ipSet, nil
+	return set, nil
 }
 
 func addIPToQoSMIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipToAdd netip.Addr) error {

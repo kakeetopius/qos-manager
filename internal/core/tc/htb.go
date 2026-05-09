@@ -14,7 +14,7 @@ import (
 )
 
 func AddRule(iface string, target netip.Prefix, priority string) error {
-	err := filter.MarkPacketHighPriority(target.Addr())
+	err := filter.AddTargetToHighPriority(target.Addr())
 	if err != nil {
 		return err
 	}
