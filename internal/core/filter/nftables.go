@@ -46,22 +46,22 @@ const (
 	LOWPRIOMARK      = 20
 )
 
-func AddTargetToHighPriority(target netip.Addr) error {
+func AddTargetsToHighPriority(target []netip.Prefix) error {
 	nftablesCtx, err := newCtx()
 	if err != nil {
 		return err
 	}
 
-	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.highPrioSet, target)
+	return addIPsToQoSMIPSet(nftablesCtx.conn, nftablesCtx.highPrioSet, target)
 }
 
-func AddTargetToLowPriority(target netip.Addr) error {
+func AddTargetsToLowPriority(target []netip.Prefix) error {
 	nftablesCtx, err := newCtx()
 	if err != nil {
 		return err
 	}
 
-	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.lowPrioSet, target)
+	return addIPsToQoSMIPSet(nftablesCtx.conn, nftablesCtx.lowPrioSet, target)
 }
 
 func GetHighPrioIPs() ([]netip.Addr, error) {
@@ -381,15 +381,21 @@ func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table, name string) (*nft
 	return set, nil
 }
 
-func addIPToQoSMIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipToAdd netip.Addr) error {
-	ip := ipToAdd.AsSlice()
+func addIPsToQoSMIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
+	setElements := make([]nftables.SetElement, 0, len(ipNetworks))
 
-	err := conn.SetAddElements(ipSet, []nftables.SetElement{
-		{Key: ip},
-	})
+	for _, network := range ipNetworks {
+		ip := network.Addr()
+		for network.Contains(ip) {
+			setElements = append(setElements, nftables.SetElement{Key: ip.AsSlice()})
+
+			ip = ip.Next()
+		}
+	}
+
+	err := conn.SetAddElements(ipSet, setElements)
 	if err != nil {
 		return err
 	}
-
 	return conn.Flush()
 }

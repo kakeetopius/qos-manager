@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func AddRule(iface string, target netip.Prefix, priority Priority) (err error) {
+func AddRule(iface string, target []netip.Prefix, priority Priority) (err error) {
 	tcnl, err := tc.Open(&tc.Config{})
 	if err != nil {
 		return err
@@ -34,9 +34,9 @@ func AddRule(iface string, target netip.Prefix, priority Priority) (err error) {
 
 	switch priority {
 	case PRIORITYHIGH:
-		err = filter.AddTargetToHighPriority(target.Addr())
+		err = filter.AddTargetsToHighPriority(target)
 	case PRIORITYLOW:
-		err = filter.AddTargetToLowPriority(target.Addr())
+		err = filter.AddTargetsToLowPriority(target)
 	default:
 		return fmt.Errorf("unknown priority %v", priority)
 	}
