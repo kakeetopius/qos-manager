@@ -14,6 +14,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// AddRule adds a traffic control rule for the specified network interface.
+// It ensures the root qdisc exists on the interface (creating it if necessary),
+// and then adds the target IP prefixes to either the high or low priority filter
+// based on the provided priority level.
+// Returns an error if any operation fails or if an unknown priority is provided.
 func AddRule(iface string, target []netip.Prefix, priority Priority) (err error) {
 	tcnl, err := tc.Open(&tc.Config{})
 	if err != nil {
@@ -47,27 +52,34 @@ func AddRule(iface string, target []netip.Prefix, priority Priority) (err error)
 	return nil
 }
 
+// FindRootQdisc searches for the root HTB  queue discipline
+// on the specified network interface. It queries all qdiscs on the system and matches
+// by interface, qdisc kind (htb), and the root qdisc handle (HTBQDISCHANDLE).
+// Returns a pointer to the matching qdisc object if found, or ErrQdiscNotFound if not present.
+// Returns an error if the qdisc query fails.
 func FindRootQdisc(conn *tc.Tc, iface string) (*tc.Object, error) {
+	dev, err := net.InterfaceByName(iface)
+	if err != nil {
+		return nil, err
+	}
+
 	qdiscs, err := conn.Qdisc().Get()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, qdisc := range qdiscs {
-		if qdisc.Kind != "htb" {
-			continue
-		}
-		if qdisc.Handle != HTBQDISCHANDLE {
-			continue
-		}
-		return &qdisc, nil
+	rootQdisc := findQdiscByHandle(qdiscs, HTBQDISCHANDLE, dev)
+	if rootQdisc == nil {
+		return nil, ErrQdiscNotFound
 	}
 
-	return nil, ErrQdiscNotFound
+	return rootQdisc, nil
 }
 
+// GetHTBCtx retrieves the HTB  context for the specified network interface.
+// Returns a populated HTBCtx struct containing the qdisc configuration and connection,
+// or an error if the connection fails or the qdisc is not found.
 func GetHTBCtx(iface string) (*HTBCtx, error) {
-	var err error
 	conn, err := tc.Open(&tc.Config{})
 	if err != nil {
 		return nil, err
@@ -82,6 +94,9 @@ func GetHTBCtx(iface string) (*HTBCtx, error) {
 	return htbCtx, nil
 }
 
+// addRootQdisc adds a root HTB  queue discipline to the
+// specified network interface.
+// Returns a pointer to the created qdisc object or an error if the operation fails.
 func addRootQdisc(tcnl *tc.Tc, iface *net.Interface) (*tc.Object, error) {
 	rootQdisc := Root()
 	rootHtbQdisc := tc.Object{
@@ -112,6 +127,9 @@ func addRootQdisc(tcnl *tc.Tc, iface *net.Interface) (*tc.Object, error) {
 	return &rootHtbQdisc, nil
 }
 
+// addHtbClass adds an HTB  traffic class to the specified network interface.
+// If priority in the class is non-zero, it is set on the class
+// Returns a pointer to the created class object or an error if the operation fails.
 func addHtbClass(tcnl *tc.Tc, iface *net.Interface, class *HTBClass) (*tc.Object, error) {
 	classObj := tc.Object{
 		Msg: tc.Msg{
@@ -150,6 +168,8 @@ func addHtbClass(tcnl *tc.Tc, iface *net.Interface, class *HTBClass) (*tc.Object
 	return &classObj, nil
 }
 
+// addFWFilter adds a firewall (fw) filter to the specified network interface.
+// Returns a pointer to the created filter object or an error if the operation fails.
 func addFWFilter(tcnl *tc.Tc, iface *net.Interface, filter *FWFilter) (*tc.Object, error) {
 	filterObj := tc.Object{
 		Msg: tc.Msg{
@@ -174,6 +194,12 @@ func addFWFilter(tcnl *tc.Tc, iface *net.Interface, filter *FWFilter) (*tc.Objec
 	return &filterObj, nil
 }
 
+// createQdisc initializes a complete HTB  queue discipline
+// hierarchy on the specified network interface. It creates the root qdisc, parent class,
+// and three traffic classes (high priority, low priority, and default). It also adds
+// firewall filters to route marked packets to the appropriate classes.
+// Returns a populated HTBCtx struct containing all created objects and the netlink connection,
+// or an error if any step of the initialization fails.
 func createQdisc(tcnl *tc.Tc, iface string) (*HTBCtx, error) {
 	if iface == "" {
 		return nil, fmt.Errorf("no interface given")
@@ -242,32 +268,31 @@ func createQdisc(tcnl *tc.Tc, iface string) (*HTBCtx, error) {
 	}, nil
 }
 
+// getQdisc retrieves the complete qosm HTB queue discipline
+// configuration for the specified network interface. It queries all qdiscs, classes,
+// and filters on the system and assembles them into an HTBCtx struct.
+// The function validates that all required components (root qdisc, parent class,
+// high/low/default classes, and high/low priority filters) are present.
+// Returns a populated HTBCtx struct or an error if any required component is missing
+// or if any query operation fails.
 func getQdisc(tcnl *tc.Tc, iface string) (*HTBCtx, error) {
-	qdiscs, err := tcnl.Qdisc().Get()
-	if err != nil {
-		return nil, err
+	qdiscs, qerr := tcnl.Qdisc().Get()
+	if qerr != nil {
+		return nil, qerr
 	}
 
 	if len(qdiscs) == 0 {
 		return nil, ErrQdiscNotFound
 	}
 
-	dev, err := net.InterfaceByName(iface)
-	if err != nil {
-		return nil, err
+	dev, qerr := net.InterfaceByName(iface)
+	if qerr != nil {
+		return nil, qerr
 	}
 
 	htbCtx := HTBCtx{}
-	for _, qdisc := range qdiscs {
-		if qdisc.Kind != "htb" {
-			continue
-		}
-		if qdisc.Handle != HTBQDISCHANDLE {
-			continue
-		}
-		fmt.Println("Qdisc found")
-		htbCtx.Root = &qdisc
-	}
+
+	htbCtx.Root = findQdiscByHandle(qdiscs, HTBQDISCHANDLE, dev)
 	if htbCtx.Root == nil {
 		return nil, ErrQdiscNotFound
 	}
@@ -277,90 +302,135 @@ func getQdisc(tcnl *tc.Tc, iface string) (*HTBCtx, error) {
 		Ifindex: uint32(dev.Index),
 	}
 
-	classes, err := tcnl.Class().Get(&msg)
-	if err != nil {
+	classes, qerr := tcnl.Class().Get(&msg)
+	if qerr != nil {
+		return nil, qerr
+	}
+
+	classMap := mapClassesByHandle(classes, dev)
+	htbCtx.ParentClass = classMap[HTBPARENTCLASSHANDLE]
+	htbCtx.HighClass = classMap[HTBHIGHPRIOCLASSHANDLE]
+	htbCtx.LowClass = classMap[HTBLOWPRIOCLASSHANDLE]
+	htbCtx.DefaultClass = classMap[HTBDEFAULTCLASSHANDLE]
+
+	if err := validateClasses(&htbCtx); err != nil {
 		return nil, err
 	}
 
-	for _, class := range classes {
-		if class.Kind != "htb" {
+	filters, qerr := tcnl.Filter().Get(&msg)
+	if qerr != nil {
+		return nil, qerr
+	}
+
+	filterMap := mapFiltersByHandle(filters, dev)
+	htbCtx.HighClassFilter = filterMap[filter.HIGHPRIOMARK]
+	htbCtx.LowClassFilter = filterMap[filter.LOWPRIOMARK]
+
+	if err := validateFilters(&htbCtx); err != nil {
+		return nil, err
+	}
+
+	return &htbCtx, nil
+}
+
+// findQdiscByHandle searches for an HTB qdisc with the specified handle.
+// Returns a pointer to the qdisc if found, nil otherwise.
+func findQdiscByHandle(qdiscs []tc.Object, handle uint32, iface *net.Interface) *tc.Object {
+	for i, qdisc := range qdiscs {
+		if qdisc.Kind == "htb" && qdisc.Handle == handle && qdisc.Ifindex == uint32(iface.Index) {
+			fmt.Println("Qdisc found")
+			return &qdiscs[i]
+		}
+	}
+	return nil
+}
+
+// mapClassesByHandle creates a map of HTB classes indexed by their handles.
+func mapClassesByHandle(classes []tc.Object, iface *net.Interface) map[uint32]*tc.Object {
+	classMap := make(map[uint32]*tc.Object)
+	for i, class := range classes {
+		if class.Kind != "htb" || class.Ifindex != uint32(iface.Index) {
 			continue
 		}
 		switch class.Handle {
 		case HTBPARENTCLASSHANDLE:
 			fmt.Println("Parent class found")
-			htbCtx.ParentClass = &class
+			classMap[class.Handle] = &classes[i]
 		case HTBHIGHPRIOCLASSHANDLE:
 			fmt.Println("High Class found")
-			htbCtx.HighClass = &class
+			classMap[class.Handle] = &classes[i]
 		case HTBLOWPRIOCLASSHANDLE:
 			fmt.Println("Low Class found")
-			htbCtx.LowClass = &class
+			classMap[class.Handle] = &classes[i]
 		case HTBDEFAULTCLASSHANDLE:
 			fmt.Println("Default Class found")
-			htbCtx.DefaultClass = &class
-		default:
-			continue
+			classMap[class.Handle] = &classes[i]
 		}
 	}
+	return classMap
+}
 
+// validateClasses checks that all required HTB classes are present.
+// Returns an error if any required class is missing.
+func validateClasses(htbCtx *HTBCtx) error {
 	switch {
 	case htbCtx.ParentClass == nil:
-		return nil, ErrClassNotFound{
+		return ErrClassNotFound{
 			ClassName:   "parent",
 			ClassHandle: HTBPARENTCLASSHANDLE,
 		}
 	case htbCtx.HighClass == nil:
-		return nil, ErrClassNotFound{
+		return ErrClassNotFound{
 			ClassName:   "high_class",
 			ClassHandle: HTBHIGHPRIOCLASSHANDLE,
 		}
 	case htbCtx.LowClass == nil:
-		return nil, ErrClassNotFound{
+		return ErrClassNotFound{
 			ClassName:   "low_class",
 			ClassHandle: HTBLOWPRIOCLASSHANDLE,
 		}
 	case htbCtx.DefaultClass == nil:
-		return nil, ErrClassNotFound{
+		return ErrClassNotFound{
 			ClassName:   "default",
 			ClassHandle: HTBDEFAULTCLASSHANDLE,
 		}
 	}
+	return nil
+}
 
-	filters, err := tcnl.Filter().Get(&msg)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, htbFilter := range filters {
-		if htbFilter.Kind != "fw" {
+// mapFiltersByHandle creates a map of firewall filters indexed by their handles.
+func mapFiltersByHandle(filters []tc.Object, iface *net.Interface) map[uint32]*tc.Object {
+	filterMap := make(map[uint32]*tc.Object)
+	for i, htbFilter := range filters {
+		if htbFilter.Kind != "fw" || htbFilter.Ifindex != uint32(iface.Index) {
 			continue
 		}
-
 		switch htbFilter.Handle {
 		case filter.HIGHPRIOMARK:
 			fmt.Println("High Class Filter found")
-			htbCtx.HighClassFilter = &htbFilter
+			filterMap[htbFilter.Handle] = &filters[i]
 		case filter.LOWPRIOMARK:
 			fmt.Println("Low Class Filter found")
-			htbCtx.LowClassFilter = &htbFilter
-		default:
-			continue
+			filterMap[htbFilter.Handle] = &filters[i]
 		}
 	}
+	return filterMap
+}
 
+// validateFilters checks that all required firewall filters are present.
+// Returns an error if any required filter is missing.
+func validateFilters(htbCtx *HTBCtx) error {
 	switch {
 	case htbCtx.LowClassFilter == nil:
-		return nil, ErrFilterNotFound{
+		return ErrFilterNotFound{
 			FilterName:   "low_class_filter",
 			FilterHandle: filter.LOWPRIOMARK,
 		}
 	case htbCtx.HighClassFilter == nil:
-		return nil, ErrFilterNotFound{
+		return ErrFilterNotFound{
 			FilterName:   "high_class_filter",
 			FilterHandle: filter.HIGHPRIOMARK,
 		}
 	}
-
-	return &htbCtx, nil
+	return nil
 }
