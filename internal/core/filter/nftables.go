@@ -17,11 +17,15 @@ type Ctx struct {
 	conn *nftables.Conn
 	// table is the nftables table where rules are stored.
 	table *nftables.Table
-	// chain is the nftables chain within the table.
-	chain *nftables.Chain
 
+	QoSMChains
 	QoSMRules
 	QoSMSets
+}
+
+type QoSMChains struct {
+	outputChain  *nftables.Chain
+	forwardChain *nftables.Chain
 }
 
 // QoSMSets holds references to nftables sets used for QoS classification.
@@ -41,8 +45,9 @@ type QoSMRules struct {
 }
 
 const (
-	TABLENAME = "qosmtable"
-	CHAINNAME = "output"
+	TABLENAME        = "qosmtable"
+	OUTPUTCHAINNAME  = "output"
+	FORWARDCHAINNAME = "forward"
 )
 
 const (
@@ -143,7 +148,7 @@ func DeleteTable() error {
 }
 
 // newCtx creates and initializes a new Ctx (context) for nftables operations.
-// It establishes a connection to nftables and retrieves the qosm table, chain,
+// It establishes a connection to nftables and retrieves the qosm table, chains,
 // IP sets, and rules. Returns a populated Ctx or an error if any step fails.
 func newCtx() (Ctx, error) {
 	conn, err := nftables.New()
@@ -156,7 +161,7 @@ func newCtx() (Ctx, error) {
 		return Ctx{}, err
 	}
 
-	chain, err := lookupQoSMChain(conn, table)
+	chains, err := lookupQoSMChains(conn, table)
 	if err != nil {
 		return Ctx{}, err
 	}
@@ -166,17 +171,22 @@ func newCtx() (Ctx, error) {
 		return Ctx{}, err
 	}
 
-	rules, err := lookupQoSMRules(conn, table, chain, ipSets)
+	outputRules, err := lookupQoSMRules(conn, table, chains.outputChain, ipSets)
+	if err != nil {
+		return Ctx{}, err
+	}
+
+	_, err = lookupQoSMRules(conn, table, chains.forwardChain, ipSets)
 	if err != nil {
 		return Ctx{}, err
 	}
 
 	return Ctx{
-		conn:      conn,
-		table:     table,
-		chain:     chain,
-		QoSMRules: rules,
-		QoSMSets:  ipSets,
+		conn:       conn,
+		table:      table,
+		QoSMChains: chains,
+		QoSMRules:  outputRules,
+		QoSMSets:   ipSets,
 	}, nil
 }
 
@@ -217,37 +227,57 @@ func addNewQoSMTable(conn *nftables.Conn) (*nftables.Table, error) {
 	return table, nil
 }
 
-// lookupQoSMChain searches for the qosm chain within the specified nftables table.
-// If found, it returns the chain. If not found, it creates a new qosm chain
-// Returns an error if listing chains fails.
-func lookupQoSMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chain, error) {
+// lookupQoSMChains searches for the qosm output and forward chains within the specified nftables table.
+// If found, it returns the chains. If not found, it creates  new qosm chains
+func lookupQoSMChains(conn *nftables.Conn, table *nftables.Table) (QoSMChains, error) {
 	fmt.Println("Looking up qosm chains")
+
+	var outputChain *nftables.Chain
+	var forwardChain *nftables.Chain
 
 	chains, err := conn.ListChains()
 	if err != nil {
-		return nil, err
+		return QoSMChains{}, err
 	}
 
 	for _, chain := range chains {
 		if chain.Table.Name != table.Name {
 			continue
 		}
-		if chain.Name == CHAINNAME {
-			return chain, nil
+		if chain.Name == OUTPUTCHAINNAME {
+			outputChain = chain
+		}
+		if chain.Name == FORWARDCHAINNAME {
+			forwardChain = chain
 		}
 	}
 
-	return addNewQosMChain(conn, table)
+	if outputChain != nil && forwardChain != nil {
+		return QoSMChains{
+			outputChain:  outputChain,
+			forwardChain: forwardChain,
+		}, nil
+	}
+
+	return addNewQosMChains(conn, table)
 }
 
-// addNewQosMChain creates and adds a new qosm chain to the specified nftables table.
+// addNewQosMChains creates and adds a new qosm chain to the specified nftables table.
 // The chain is configured as an output hook filter chain with standard filter priority.
 // Returns the created chain or an error
-func addNewQosMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chain, error) {
-	fmt.Println("Adding QoSM chain ")
-	chain := conn.AddChain(&nftables.Chain{
-		Name:     CHAINNAME,
+func addNewQosMChains(conn *nftables.Conn, table *nftables.Table) (QoSMChains, error) {
+	fmt.Println("Adding QoSM chains ")
+	outputChain := conn.AddChain(&nftables.Chain{
+		Name:     OUTPUTCHAINNAME,
 		Hooknum:  nftables.ChainHookOutput,
+		Type:     nftables.ChainTypeFilter,
+		Table:    table,
+		Priority: nftables.ChainPriorityFilter,
+	})
+
+	forwardChain := conn.AddChain(&nftables.Chain{
+		Name:     FORWARDCHAINNAME,
+		Hooknum:  nftables.ChainHookForward,
 		Type:     nftables.ChainTypeFilter,
 		Table:    table,
 		Priority: nftables.ChainPriorityFilter,
@@ -255,17 +285,20 @@ func addNewQosMChain(conn *nftables.Conn, table *nftables.Table) (*nftables.Chai
 
 	err := conn.Flush()
 	if err != nil {
-		return nil, err
+		return QoSMChains{}, err
 	}
 
-	return chain, nil
+	return QoSMChains{
+		outputChain:  outputChain,
+		forwardChain: forwardChain,
+	}, nil
 }
 
 // lookupQoSMRules searches for qosm marking rules within the specified chain.
 // If either rule is not found, it creates a new marking rule by calling addMarkingRule.
 // Returns a QoSMRules struct containing both rules, or an error if any operation fails.
 func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets QoSMSets) (QoSMRules, error) {
-	fmt.Println("Looking up qosm rules")
+	fmt.Println("Looking up qosm rules for " + chain.Name)
 
 	rules, err := conn.GetRules(table, chain)
 	if err != nil {
