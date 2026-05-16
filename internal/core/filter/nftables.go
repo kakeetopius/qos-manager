@@ -13,7 +13,7 @@ import (
 
 // AddTargetsToHighPriority ip addresses to the high-priority IP set.
 func AddTargetsToHighPriority(targets []netip.Prefix) error {
-	nftablesCtx, err := newCtx()
+	nftablesCtx, err := NewNFTCtx()
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func AddTargetsToHighPriority(targets []netip.Prefix) error {
 
 // AddTargetsToLowPriority adds ip addresses to the low-priority IP set.
 func AddTargetsToLowPriority(targets []netip.Prefix) error {
-	nftablesCtx, err := newCtx()
+	nftablesCtx, err := NewNFTCtx()
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func AddTargetsToLowPriority(targets []netip.Prefix) error {
 
 // DeleteTargetFromHighPriority removes the given ip addresses from the high-priority IP set.
 func DeleteTargetFromHighPriority(targets []netip.Prefix) error {
-	nftablesCtx, err := newCtx()
+	nftablesCtx, err := NewNFTCtx()
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func DeleteTargetFromHighPriority(targets []netip.Prefix) error {
 
 // DeleteTargetFromLowPriority removes the given ip addresses from the low-priority IP set.
 func DeleteTargetFromLowPriority(targets []netip.Prefix) error {
-	nftablesCtx, err := newCtx()
+	nftablesCtx, err := NewNFTCtx()
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func DeleteTargetFromLowPriority(targets []netip.Prefix) error {
 
 // GetHighPrioIPs returns all IP addresses in the high-priority set.
 func GetHighPrioIPs() ([]netip.Addr, error) {
-	nftCtx, err := newCtx()
+	nftCtx, err := NewNFTCtx()
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func GetHighPrioIPs() ([]netip.Addr, error) {
 
 // GetLowPrioIPs returns all IP addresses in the low-priority set.
 func GetLowPrioIPs() ([]netip.Addr, error) {
-	nftCtx, err := newCtx()
+	nftCtx, err := NewNFTCtx()
 	if err != nil {
 		return nil, err
 	}
@@ -96,44 +96,44 @@ func DeleteTable() error {
 	return conn.Flush()
 }
 
-// newCtx creates and initializes a new Ctx (context) for nftables operations.
+// NewNFTCtx creates and initializes a new Ctx (context) for nftables operations.
 // It establishes a connection to nftables and retrieves the qosm table, chains,
 // IP sets, and rules. Returns a populated Ctx or an error if any step fails.
-func newCtx() (Ctx, error) {
+func NewNFTCtx() (NFTCtx, error) {
 	conn, err := nftables.New()
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 
 	table, err := lookupQoSMTable(conn)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 
 	outputChain, err := lookupQoSMChain(conn, table, OUTPUTCHAINNAME, nftables.ChainHookOutput)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 
 	forwardChain, err := lookupQoSMChain(conn, table, FORWARDCHAINNAME, nftables.ChainHookForward)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 
 	ipSets, err := lookupQoSMIPSets(conn, table)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 
 	outputRules, err := lookupQoSMRules(conn, table, outputChain.Chain, ipSets)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 	outputChain.QosmRules = outputRules
 
 	filterRules, err := lookupQoSMRules(conn, table, forwardChain.Chain, ipSets)
 	if err != nil {
-		return Ctx{}, err
+		return NFTCtx{}, err
 	}
 	forwardChain.QosmRules = filterRules
 
@@ -142,7 +142,7 @@ func newCtx() (Ctx, error) {
 		forwardChain: forwardChain,
 	}
 
-	return Ctx{
+	return NFTCtx{
 		conn: conn,
 		QosmTable: QosmTable{
 			Table:      table,

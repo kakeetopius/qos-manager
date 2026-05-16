@@ -126,11 +126,16 @@ func RuleListCmd() *cobra.Command {
 				return fmt.Errorf("please provide an interface")
 			}
 
-			highPrioIPs, err := filter.GetHighPrioIPs()
+			nftablesCtx, err := filter.NewNFTCtx()
 			if err != nil {
 				return err
 			}
-			lowPrioIPs, err := filter.GetLowPrioIPs()
+
+			highPrioIPs, err := nftablesCtx.GetHighPrioIPs()
+			if err != nil {
+				return err
+			}
+			lowPrioIPs, err := nftablesCtx.GetLowPrioIPs()
 			if err != nil {
 				return err
 			}

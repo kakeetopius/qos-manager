@@ -1,9 +1,14 @@
 package filter
 
-import "github.com/google/nftables"
+import (
+	"fmt"
+	"net/netip"
 
-// Ctx holds the nftables connection and all QOSM table structures.
-type Ctx struct {
+	"github.com/google/nftables"
+)
+
+// NFTCtx holds the nftables connection and all QOSM table structures.
+type NFTCtx struct {
 	conn *nftables.Conn
 	QosmTable
 }
@@ -56,3 +61,40 @@ const (
 	LOWPRIOIPSETNAME = "low_prio_ips"
 	LOWPRIOMARK      = 20
 )
+
+// AddTargetsToHighPriority ip addresses to the high-priority IP set.
+func (c *NFTCtx) AddTargetsToHighPriority(targets []netip.Prefix) error {
+	return addIPsToQoSMIPSet(c.conn, c.highPrioSet, targets)
+}
+
+// AddTargetsToLowPriority adds ip addresses to the low-priority IP set.
+func (c *NFTCtx) AddTargetsToLowPriority(targets []netip.Prefix) error {
+	return addIPsToQoSMIPSet(c.conn, c.lowPrioSet, targets)
+}
+
+// DeleteTargetFromHighPriority removes the given ip addresses from the high-priority IP set.
+func (c *NFTCtx) DeleteTargetFromHighPriority(targets []netip.Prefix) error {
+	return deleteIPsFromQoSIPSet(c.conn, c.highPrioSet, targets)
+}
+
+// DeleteTargetFromLowPriority removes the given ip addresses from the low-priority IP set.
+func (c *NFTCtx) DeleteTargetFromLowPriority(targets []netip.Prefix) error {
+	return deleteIPsFromQoSIPSet(c.conn, c.lowPrioSet, targets)
+}
+
+// GetHighPrioIPs returns all IP addresses in the high-priority set.
+func (c *NFTCtx) GetHighPrioIPs() ([]netip.Addr, error) {
+	return getIPSetElements(c.conn, c.highPrioSet)
+}
+
+// GetLowPrioIPs returns all IP addresses in the low-priority set.
+func (c *NFTCtx) GetLowPrioIPs() ([]netip.Addr, error) {
+	return getIPSetElements(c.conn, c.lowPrioSet)
+}
+
+// DeleteTable removes the qosm nftables table from the system. The context becomes invalid after this operation.
+func (c *NFTCtx) DeleteTable() error {
+	fmt.Println("Deleting table")
+	c.conn.DelTable(c.Table)
+	return c.conn.Flush()
+}
