@@ -1,0 +1,38 @@
+{{ define "login" }}
+<!DOCTYPE html>
+<html>
+
+{{ block "meta" . }} {{ end }}
+
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center">
+
+	<div class="w-full max-w-md bg-zinc-900 p-8 rounded-xl shadow-lg">
+
+		<h1 class="text-2xl font-bold mb-6 text-center">
+			Login
+		</h1>
+
+		<!-- Login form -->
+		<form hx-post="/login" hx-target="#login-error" hx-swap="innerHTML" class="space-y-4">
+
+			<input name="username" placeholder="Username"
+				class="w-full p-2 rounded bg-zinc-800 border border-zinc-700 focus:outline-none" />
+
+			<input type="password" name="password" placeholder="Password"
+				class="w-full p-2 rounded bg-zinc-800 border border-zinc-700 focus:outline-none" />
+
+			<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold">
+				Login
+			</button>
+
+			<!-- error output goes here -->
+			<div id="login-error" class="text-center"></div>
+
+		</form>
+
+	</div>
+
+</body>
+
+</html>
+{{ end }}

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/kakeetopius/qosm/internal/web"
+	"github.com/kakeetopius/qosm/web"
 	"github.com/spf13/cobra"
 )
 

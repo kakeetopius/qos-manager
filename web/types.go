@@ -11,6 +11,11 @@ type ServerCtx struct {
 	htbctx tc.HTBCtx
 }
 
+type ServerOptions struct {
+	Port   int
+	DBPath string
+}
+
 type ServerError struct {
 	StatusCode int
 	Err        error
@@ -18,8 +23,4 @@ type ServerError struct {
 
 func (e ServerError) Error() string {
 	return e.Err.Error()
-}
-
-type ServerOptions struct {
-	Port int
 }
