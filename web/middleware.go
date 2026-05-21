@@ -61,7 +61,7 @@ func ErrorHandlerToast(app *routes.ServerCtx) gin.HandlerFunc {
 		app.Logger.Error("server_error", "Error", err.Error())
 
 		ctx.HTML(http.StatusOK, "toast_error", gin.H{
-			"Message": "Failed to apply settings: " + err.Error(),
+			"Message": "Error: " + err.Error(),
 		})
 	}
 }

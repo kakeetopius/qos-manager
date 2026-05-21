@@ -99,6 +99,8 @@ func addRoutes(router *gin.Engine, app *routes.ServerCtx) {
 	admin.POST("settings/dns/save", app.PostDNSSettings)
 	admin.POST("settings/security/save", app.PostSecuritySettings)
 
+	admin.POST("/rules/create", app.PostRules)
+
 	admin.GET("/logout", app.Logout)
 	admin.GET("/", app.DashboardPage)
 }

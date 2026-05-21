@@ -95,9 +95,16 @@ func (app *ServerCtx) PostSecuritySettings(c *gin.Context) {
 	SendSuccessMessage(c)
 }
 
-func SendSuccessMessage(c *gin.Context) {
+func SendSuccessMessage(c *gin.Context, message ...string) {
+	var msg string
+	if len(message) == 0 {
+		msg = "Settings applied successfully ✔"
+	} else {
+		msg = message[0]
+	}
+
 	c.HTML(http.StatusOK, "toast_success", gin.H{
-		"Message": "Settings applied successfully ✔",
+		"Message": msg,
 	})
 }
 

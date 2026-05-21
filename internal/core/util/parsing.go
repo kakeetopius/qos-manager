@@ -15,6 +15,35 @@ type ipParseError struct {
 	error
 }
 
+// TargetsFromString parses a comma-separated string of network targets and returns
+// a deduplicated slice of netip.Prefix values.
+//
+// The input string format supports multiple target types:
+//   - CIDR notation: "10.1.1.1/24, 2001:abcd::1/64"
+//   - Single IP addresses: "10.1.1.1"
+//   - IP ranges: "10.1.1.1-2"
+//
+// Example: "10.1.1.1/24,10.1.1.1,10.1.1.1-2"
+//
+// Returns an error if any target string cannot be parsed.
+func TargetsFromString(s string) ([]netip.Prefix, error) {
+	targetStrings := strings.Split(s, ",")
+	targets := make([]netip.Prefix, 0, 5)
+
+	for _, targetString := range targetStrings {
+		if targetString == "" {
+			return nil, fmt.Errorf("error parsing targets -> one of the targets is empty")
+		}
+		targetaddrs, err := parseTargetString(targetString)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, targetaddrs...)
+	}
+
+	return Unique(targets), nil
+}
+
 // TargetsFromStringWithDNSLookup parses a comma-separated string of network targets
 // and performs DNS lookups for unresolvable addresses, treating them as domain names.
 //
