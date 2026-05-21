@@ -2,7 +2,9 @@ package web
 
 import (
 	"errors"
+	"net/http"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,5 +44,21 @@ func ErrorHandlerHTML() gin.HandlerFunc {
 				"Error": serverError.Error(),
 			})
 		}
+	}
+}
+
+func AuthRequired() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+
+		username := session.Get("username")
+
+		if username == nil {
+			ctx.Redirect(http.StatusFound, "/login")
+			ctx.Abort()
+			return
+		}
+
+		ctx.Next()
 	}
 }

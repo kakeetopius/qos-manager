@@ -14,8 +14,10 @@ type ServerCtx struct {
 }
 
 type ServerOptions struct {
-	Port   int
-	DBPath string
+	Port            int
+	DBPath          string
+	SessionsEncKey  string
+	SessionsHashKey string
 }
 
 type ServerError struct {

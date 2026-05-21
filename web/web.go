@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/gin-contrib/multitemplate"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,6 +29,8 @@ func Run() error {
 	}
 	router.HTMLRender = renderer
 
+	setUpSessionMgmt(router)
+
 	embedFiles(router)
 
 	app := ServerCtx{
@@ -38,6 +42,12 @@ func Run() error {
 	return nil
 }
 
+func setUpSessionMgmt(router *gin.Engine) {
+	store := cookie.NewStore([]byte("cookie-key"))
+
+	router.Use(sessions.Sessions("qosm-session", store))
+}
+
 func addRoutes(router *gin.Engine, app *ServerCtx) {
 	router.Use(ErrorHandlerHTML())
 
@@ -45,16 +55,18 @@ func addRoutes(router *gin.Engine, app *ServerCtx) {
 		c.String(http.StatusOK, "hello from qosm")
 	})
 
-	router.GET("/login", app.login)
-	router.POST("/login", app.loginPost)
-	router.GET("/dashboard", app.dashboard)
-	router.GET("/rules", app.rules)
-	router.GET("/analytics", app.analytics)
-	router.GET("/logs", app.logs)
-	router.GET("/settings", app.settings)
-	router.GET("/logout", app.logout)
+	auth := router.Group("/")
+	auth.GET("/login", app.login)
+	auth.POST("/login", app.loginPost)
 
-	router.GET("/", app.dashboard)
+	admin := router.Group("/", AuthRequired())
+	admin.GET("/dashboard", app.dashboard)
+	admin.GET("/rules", app.rules)
+	admin.GET("/analytics", app.analytics)
+	admin.GET("/logs", app.logs)
+	admin.GET("/settings", app.settings)
+	admin.GET("/logout", app.logout)
+	admin.GET("/", app.dashboard)
 }
 
 func embedFiles(router *gin.Engine) error {
@@ -84,7 +96,6 @@ func createRenderer() (multitemplate.Renderer, error) {
 	}
 
 	r.AddFromFS("login", tmplSubFS, "pages/login.tmpl", "partials/meta.tmpl", "partials/fail.tmpl")
-
 	r.AddFromFS("fail", tmplSubFS, "partials/fail.tmpl")
 	return r, nil
 }
