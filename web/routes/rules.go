@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/tc"
@@ -52,6 +54,29 @@ func (app *ServerCtx) PostRules(c *gin.Context) {
 	SendNewRuleRow(c, rule)
 }
 
+func (app *ServerCtx) DeleteRule(c *gin.Context) {
+	ruleType := c.Param("type")
+	ruleID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.Error(fmt.Errorf("invalid id given"))
+		return
+	}
+
+	switch ruleType {
+	case "domain":
+		err = deleteDomainRule(app, ruleID)
+	case "ip":
+		err = deleteIPRule(app, ruleID)
+	}
+
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Header("HX-Trigger", `{"toast":"Rule deleted successfully"}`)
+}
+
 func SendNewRuleRow(c *gin.Context, rule Rule) {
 	c.HTML(http.StatusOK, "rule_table_row", gin.H{
 		"Rule": rule,
@@ -75,6 +100,11 @@ func addDomainRule(app *ServerCtx, domain string, priority string) (Rule, error)
 		prio = tc.PRIORITYLOW
 	default:
 		return Rule{}, fmt.Errorf("unknown priority: %s", priority)
+	}
+
+	_, err = netip.ParseAddr(domain)
+	if err == nil {
+		return Rule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
 	}
 
 	app.Logger.Info("resolving_domain", "domain", domain)
@@ -131,7 +161,7 @@ func addIPRule(app *ServerCtx, ip string, priority string) (Rule, error) {
 
 	addrs, err := util.TargetsFromString(ip)
 	if err != nil {
-		return Rule{}, err
+		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
 	}
 
 	app.Logger.Info("add_rule", "target", ip, "priority", priority)
@@ -142,12 +172,13 @@ func addIPRule(app *ServerCtx, ip string, priority string) (Rule, error) {
 		return Rule{}, err
 	}
 
-	err = db.AddIPToPriority(app.DB, ip, priority)
+	ipString := addrs[0].String()
+	err = db.AddIPToPriority(app.DB, ipString, priority)
 	if err != nil {
 		return Rule{}, err
 	}
 
-	rule, err := db.GetIPRuleByName(app.DB, ip)
+	rule, err := db.GetIPRuleByName(app.DB, ipString)
 	if err != nil {
 		return Rule{}, err
 	}
@@ -158,6 +189,61 @@ func addIPRule(app *ServerCtx, ip string, priority string) (Rule, error) {
 		Target:   rule.IP,
 		ID:       rule.ID,
 	}, nil
+}
+
+func deleteDomainRule(app *ServerCtx, domainRuleID int) error {
+	domainRule, err := db.GetDomainRuleByID(app.DB, domainRuleID)
+	if err != nil {
+		return err
+	}
+
+	addrs := make([]netip.Prefix, 0, len(domainRule.IPs))
+	for _, addr := range domainRule.IPs {
+		ip, iperr := netip.ParsePrefix(addr.IP)
+		if iperr != nil {
+			return iperr
+		}
+		addrs = append(addrs, ip)
+	}
+
+	switch domainRule.Priority {
+	case "high":
+		err = app.HTBCtx.NFTFilter.DeleteTargetFromHighPriority(addrs)
+	case "low":
+		err = app.HTBCtx.NFTFilter.DeleteTargetFromLowPriority(addrs)
+	default:
+		return fmt.Errorf("unknown priority: %v", domainRule.Priority)
+	}
+	if err != nil {
+		return err
+	}
+
+	return db.DeleteDomainRuleByID(app.DB, domainRuleID)
+}
+
+func deleteIPRule(app *ServerCtx, ipRuleID int) error {
+	ipRule, err := db.GetIPRuleByID(app.DB, ipRuleID)
+	if err != nil {
+		return err
+	}
+	addr, err := netip.ParsePrefix(ipRule.IP)
+	if err != nil {
+		return err
+	}
+
+	switch ipRule.Priority {
+	case "high":
+		err = app.HTBCtx.NFTFilter.DeleteTargetFromHighPriority([]netip.Prefix{addr})
+	case "low":
+		err = app.HTBCtx.NFTFilter.DeleteTargetFromLowPriority([]netip.Prefix{addr})
+	default:
+		return fmt.Errorf("unknown priority: %v", ipRule.Priority)
+	}
+	if err != nil {
+		return err
+	}
+
+	return db.DeleteIPRuleByID(app.DB, ipRuleID)
 }
 
 func getAllRules(app *ServerCtx) ([]Rule, error) {

@@ -161,6 +161,24 @@ func GetDomainRuleByName(db *sql.DB, name string) (DomainRule, error) {
 	return rule, err
 }
 
+func GetDomainRuleByID(db *sql.DB, id int) (DomainRule, error) {
+	row := db.QueryRow(`
+		SELECT id, domain_name, priority, created_at, last_resolved_at
+		FROM domainrules
+		WHERE id = ?
+	`, id)
+
+	var rule DomainRule
+	err := row.Scan(&rule.ID, &rule.DomainName, &rule.Priority, &rule.CreatedAt, &rule.LastResolvedAt)
+	if err != nil {
+		return DomainRule{}, err
+	}
+
+	rules := []DomainRule{rule}
+	err = addDomainIPsToResult(db, rules)
+	return rules[0], err
+}
+
 func DeleteDomainRuleByID(db *sql.DB, id int) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {

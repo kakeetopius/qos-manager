@@ -115,6 +115,7 @@ func addRoutes(router *gin.Engine, app *routes.ServerCtx) {
 	admin.POST("settings/security/save", app.PostSecuritySettings)
 
 	admin.POST("/rules/create", app.PostRules)
+	admin.DELETE("/rules/:type/:id", app.DeleteRule)
 
 	admin.GET("/logout", app.Logout)
 	admin.GET("/", app.DashboardPage)

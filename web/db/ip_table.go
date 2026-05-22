@@ -97,6 +97,22 @@ func GetIPRuleByName(db *sql.DB, name string) (IPRule, error) {
 	return rule, nil
 }
 
+func GetIPRuleByID(db *sql.DB, id int) (IPRule, error) {
+	row := db.QueryRow(`
+		SELECT id, ip, priority, created_at 
+		FROM iprules
+		WHERE id = ?
+	`, id)
+
+	var rule IPRule
+	err := row.Scan(&rule.ID, &rule.IP, &rule.Priority, &rule.CreatedAt)
+	if err != nil {
+		return IPRule{}, err
+	}
+
+	return rule, nil
+}
+
 func DeleteIPRuleByName(db *sql.DB, name string) error {
 	_, err := db.Exec(`
 		DELETE FROM iprules
