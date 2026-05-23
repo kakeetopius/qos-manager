@@ -50,9 +50,15 @@ type qosmRules struct {
 	lowPrioRule  *nftables.Rule
 }
 
-type PrioritySetStats struct {
+type RuleStats struct {
 	PacketCount uint64
 	ByteCount   uint64
+}
+
+type InterfaceStats struct {
+	IfIndex  int
+	HighPrio RuleStats
+	LowPrio  RuleStats
 }
 
 const (
@@ -200,6 +206,7 @@ func (c *NFTCtx) AddIfaceRules(ifIndex int) error {
 		return err
 	}
 
+	// cache the rules.
 	if c.outputChain.Rules == nil {
 		c.outputChain.Rules = make(map[IfaceIndex]qosmRules)
 	}
@@ -258,57 +265,40 @@ func (c *NFTCtx) DeleteIfaceRules(ifIndex int) error {
 	return nil
 }
 
-// func (c *NFTCtx) GetHighPrioStats() (PrioritySetStats, error) {
-// 	outputStats := getRuleStats(c.outputChain.highPrioRule)
-// 	forwardStats := getRuleStats(c.forwardChain.highPrioRule)
-//
-// 	return PrioritySetStats{
-// 		PacketCount: outputStats.PacketCount + forwardStats.PacketCount,
-// 		ByteCount:   outputStats.ByteCount + forwardStats.ByteCount,
-// 	}, nil
-// }
-//
-// func (c *NFTCtx) GetLowPrioStats() (PrioritySetStats, error) {
-// 	outputStats := getRuleStats(c.outputChain.lowPrioRule)
-// 	forwardStats := getRuleStats(c.forwardChain.lowPrioRule)
-//
-// 	return PrioritySetStats{
-// 		PacketCount: outputStats.PacketCount + forwardStats.PacketCount,
-// 		ByteCount:   outputStats.ByteCount + forwardStats.ByteCount,
-// 	}, nil
-// }
-
-func (c *NFTCtx) Refresh() error {
+func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 	nftOpts := NFTOpts{
 		CreateIfNotExists: false,
 		Logger:            c.Logger,
 	}
-	ipSets, err := lookupQoSMIPSets(c.conn, c.Table, &nftOpts)
+
+	// rules from output chain
+	outputRules, err := lookupQoSMRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifindex, &nftOpts)
 	if err != nil {
-		return err
+		return InterfaceStats{}, err
 	}
-	c.highPrioSet = ipSets.highPrioSet
-	c.lowPrioSet = ipSets.lowPrioSet
+	outputStatsHigh := getRuleStats(outputRules.highPrioRule)
+	outputStatsLow := getRuleStats(outputRules.lowPrioRule)
 
-	nftOpts.CreateIfNotExists = true
-
-	for ifIndex := range c.outputChain.Rules {
-		outputRules, err := lookupQoSMRules(c.conn, c.Table, c.outputChain.Chain, ipSets, int(ifIndex), &nftOpts)
-		if err != nil {
-			return err
-		}
-		c.outputChain.Rules[ifIndex] = outputRules
+	// rules from forward chain
+	forwardRules, err := lookupQoSMRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifindex, &nftOpts)
+	if err != nil {
+		return InterfaceStats{}, err
 	}
+	forwrdStatsHigh := getRuleStats(forwardRules.highPrioRule)
+	forwrdStatsLow := getRuleStats(forwardRules.lowPrioRule)
 
-	for ifIndex := range c.forwardChain.Rules {
-		forwardRules, err := lookupQoSMRules(c.conn, c.Table, c.forwardChain.Chain, ipSets, int(ifIndex), &nftOpts)
-		if err != nil {
-			return err
-		}
-		c.forwardChain.Rules[ifIndex] = forwardRules
-	}
-
-	return nil
+	// aggregate stats from both output and foward chains into one.
+	return InterfaceStats{
+		IfIndex: ifindex,
+		HighPrio: RuleStats{
+			PacketCount: outputStatsHigh.PacketCount + forwrdStatsHigh.PacketCount,
+			ByteCount:   outputStatsHigh.ByteCount + forwrdStatsHigh.ByteCount,
+		},
+		LowPrio: RuleStats{
+			PacketCount: outputStatsLow.PacketCount + forwrdStatsLow.PacketCount,
+			ByteCount:   outputStatsLow.ByteCount + forwrdStatsLow.ByteCount,
+		},
+	}, nil
 }
 
 // DeleteTable removes the qosm nftables table from the system. The context becomes invalid after this operation.

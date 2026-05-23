@@ -433,17 +433,17 @@ func getIPSetElements(conn *nftables.Conn, set *nftables.Set) ([]netip.Prefix, e
 	return ips, nil
 }
 
-func getRuleStats(rule *nftables.Rule) PrioritySetStats {
+func getRuleStats(rule *nftables.Rule) RuleStats {
 	exprs := rule.Exprs
 
 	for _, e := range exprs {
 		switch counter := e.(type) {
 		case *expr.Counter:
-			return PrioritySetStats{counter.Packets, counter.Bytes}
+			return RuleStats{counter.Packets, counter.Bytes}
 		}
 	}
 
-	return PrioritySetStats{}
+	return RuleStats{}
 }
 
 func deleteIPsFromQoSIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {

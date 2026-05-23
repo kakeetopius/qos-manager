@@ -22,6 +22,7 @@ func IfaceCmd() *cobra.Command {
 	ifaceCmd.AddCommand(
 		IfaceAddCmd(),
 		IfaceDeleteCmd(),
+		IfaceStats(),
 	)
 	return &ifaceCmd
 }
@@ -132,4 +133,55 @@ func IfaceDeleteCmd() *cobra.Command {
 	}
 
 	return &ifaceDeleteCmd
+}
+
+func IfaceStats() *cobra.Command {
+	ifaceAddCmd := cobra.Command{
+		Use:     "stats",
+		Short:   "Get htb stats for the interface.",
+		Aliases: []string{"s"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			htbCtx, err := tc.NewHTBCtx()
+			if err != nil {
+				return err
+			}
+			defer htbCtx.Close()
+			if debug {
+				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+					Level: slog.LevelDebug,
+				}))
+				htbCtx.WithLogger(logger)
+			}
+
+			err = htbCtx.InitHTBFilter(false)
+			if err != nil {
+				return err
+			}
+			iface := args[0]
+
+			dev, err := net.InterfaceByName(iface)
+			if err != nil {
+				return err
+			}
+			stats, err := htbCtx.NFTFilter.GetIfaceRuleStats(dev.Index)
+			if err != nil {
+				var errRuleNotFound nft.ErrRuleNotFound
+				if errors.As(err, &errRuleNotFound) {
+					return fmt.Errorf("interface %v is not initialised", iface)
+				}
+				return err
+			}
+			fmt.Println("High Priority")
+			fmt.Println("Packet Count: ", stats.HighPrio.PacketCount)
+			fmt.Println("Bytes Count: ", stats.HighPrio.ByteCount)
+			fmt.Println("Low Priority")
+			fmt.Println("Packet Count: ", stats.LowPrio.PacketCount)
+			fmt.Println("Bytes Count: ", stats.LowPrio.ByteCount)
+
+			return nil
+		},
+	}
+
+	return &ifaceAddCmd
 }
