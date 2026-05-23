@@ -448,6 +448,7 @@ func deleteIPsFromQoSIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks 
 		ip := network.Addr()
 		for network.Contains(ip) {
 			if !slices.Contains(currentElements, ip) {
+				ip = ip.Next()
 				continue
 			}
 			toDelete = append(toDelete, nftables.SetElement{Key: ip.AsSlice()})
