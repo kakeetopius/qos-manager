@@ -13,12 +13,8 @@ import (
 
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
+	"github.com/kakeetopius/qosm/internal/core/util"
 )
-
-type NFTOpts struct {
-	CreateIfNotExists bool
-	Logger            *slog.Logger
-}
 
 func NewNFTCtx(opts NFTOpts) (NFTCtx, error) {
 	conn, err := nftables.New()
@@ -26,22 +22,22 @@ func NewNFTCtx(opts NFTOpts) (NFTCtx, error) {
 		return NFTCtx{}, err
 	}
 
-	table, err := lookupQoSMTable(conn, &opts)
+	table, err := lookupQosmTable(conn, &opts)
 	if err != nil {
 		return NFTCtx{}, err
 	}
 
-	outputChain, err := lookupQoSMChain(conn, table, OUTPUTCHAINNAME, nftables.ChainHookOutput, &opts)
+	outputChain, err := lookupQosmChain(conn, table, OUTPUTCHAINNAME, nftables.ChainHookOutput, &opts)
 	if err != nil {
 		return NFTCtx{}, err
 	}
 
-	forwardChain, err := lookupQoSMChain(conn, table, FORWARDCHAINNAME, nftables.ChainHookForward, &opts)
+	forwardChain, err := lookupQosmChain(conn, table, FORWARDCHAINNAME, nftables.ChainHookForward, &opts)
 	if err != nil {
 		return NFTCtx{}, err
 	}
 
-	ipSets, err := lookupQoSMIPSets(conn, table, &opts)
+	ipSets, err := lookupQosmIPSets(conn, table, &opts)
 	if err != nil {
 		return NFTCtx{}, err
 	}
@@ -84,8 +80,8 @@ func DeleteTable() error {
 	return ErrTableNotFound
 }
 
-func lookupQoSMTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error) {
-	Debug(opts.Logger, "nft: lookup of qosm table")
+func lookupQosmTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm table")
 	tables, err := conn.ListTables()
 	if err != nil {
 		return nil, err
@@ -93,22 +89,22 @@ func lookupQoSMTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error
 
 	for _, table := range tables {
 		if table.Name == TABLENAME {
-			Debug(opts.Logger, "nft: lookup successfull", "name", "qosmtable")
+			util.Debug(opts.Logger, "nft: lookup successfull", "name", "qosmtable")
 			return table, nil
 		}
 	}
 
 	if opts.CreateIfNotExists {
-		return addNewQoSMTable(conn, opts.Logger)
+		return addNewQosmTable(conn, opts.Logger)
 	}
 
 	return nil, ErrTableNotFound
 }
 
-// addNewQoSMTable creates and adds a new qosm nftables table to the system.
+// addNewQosmTable creates and adds a new qosm nftables table to the system.
 // Returns the created table or an error if failed
-func addNewQoSMTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table, error) {
-	Debug(logger, "nft: creating table", "name", "qosmtable")
+func addNewQosmTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table, error) {
+	util.Debug(logger, "nft: creating table", "name", "qosmtable")
 	table := conn.AddTable(&nftables.Table{
 		Name:   TABLENAME,
 		Family: nftables.TableFamilyINet,
@@ -124,8 +120,8 @@ func addNewQoSMTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table,
 
 // lookupQoSMChains searches for the specified chain within the specified nftables table.
 // If found, it return the chain. If not found, it creates the chain
-func lookupQoSMChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, opts *NFTOpts) (qosmChain, error) {
-	Debug(opts.Logger, "nft: lookup of qosm chain")
+func lookupQosmChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, opts *NFTOpts) (qosmChain, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm chain")
 	chains, err := conn.ListChains()
 	if err != nil {
 		return qosmChain{}, err
@@ -136,7 +132,7 @@ func lookupQoSMChain(conn *nftables.Conn, table *nftables.Table, chainName strin
 			continue
 		}
 		if chain.Name == chainName {
-			Debug(opts.Logger, "nft: chain lookup successfull", "name", chainName)
+			util.Debug(opts.Logger, "nft: chain lookup successfull", "name", chainName)
 			return qosmChain{
 				Chain: chain,
 			}, nil
@@ -144,16 +140,16 @@ func lookupQoSMChain(conn *nftables.Conn, table *nftables.Table, chainName strin
 	}
 
 	if opts.CreateIfNotExists {
-		return addNewQosMChain(conn, table, chainName, hook, opts.Logger)
+		return addNewQosmChain(conn, table, chainName, hook, opts.Logger)
 	}
 
 	return qosmChain{}, ErrChainNotFound
 }
 
-// addNewQosMChain creates and adds a new chain to the specified nftables table.
+// addNewQosmChain creates and adds a new chain to the specified nftables table.
 // The chain is configured as the specified hook  with standard filter priority.
-func addNewQosMChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, logger *slog.Logger) (qosmChain, error) {
-	Debug(logger, "nft: creating chain", "name", chainName)
+func addNewQosmChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, logger *slog.Logger) (qosmChain, error) {
+	util.Debug(logger, "nft: creating chain", "name", chainName)
 	chain := conn.AddChain(&nftables.Chain{
 		Name:     chainName,
 		Hooknum:  hook,
@@ -172,8 +168,8 @@ func addNewQosMChain(conn *nftables.Conn, table *nftables.Table, chainName strin
 	}, nil
 }
 
-func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets qosmSets, oifIndex int, opts *NFTOpts) (qosmRules, error) {
-	Debug(opts.Logger, "nft: lookup of qosm rules", "chain", chain.Name, "ofindex", oifIndex)
+func lookupQosmRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets qosmSets, oifIndex int, opts *NFTOpts) (qosmRules, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm rules", "chain", chain.Name, "ofindex", oifIndex)
 
 	rules, err := conn.GetRules(table, chain)
 	if err != nil {
@@ -188,11 +184,11 @@ func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables
 
 	for _, rule := range rules {
 		if string(rule.UserData) == highPrioRuleName {
-			Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", highPrioRuleName)
+			util.Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", highPrioRuleName)
 			highPrioRule = rule
 		}
 		if string(rule.UserData) == lowPrioRuleName {
-			Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", lowPrioRuleName)
+			util.Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", lowPrioRuleName)
 			lowPrioRule = rule
 		}
 	}
@@ -240,7 +236,7 @@ func lookupQoSMRules(conn *nftables.Conn, table *nftables.Table, chain *nftables
 }
 
 func addMarkingRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nftables.Rule, error) {
-	Debug(logger, "nft: creating rule", "chain", params.chain.Name, "rule", params.ruleName, "mark", params.mark, "oifaceIndex", params.oifaceIndex)
+	util.Debug(logger, "nft: creating rule", "chain", params.chain.Name, "rule", params.ruleName, "mark", params.mark, "oifaceIndex", params.oifaceIndex)
 	byteMark := make([]byte, 4)
 	binary.NativeEndian.PutUint32(byteMark, uint32(params.mark))
 
@@ -306,47 +302,42 @@ func addMarkingRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger)
 	return rule, nil
 }
 
-func lookupQoSMIPSets(conn *nftables.Conn, table *nftables.Table, opts *NFTOpts) (qosmSets, error) {
-	Debug(opts.Logger, "nft: lookup of qosm sets")
-
-	sets, err := conn.GetSets(table)
-	if err != nil {
-		return qosmSets{}, err
-	}
+func lookupQosmIPSets(conn *nftables.Conn, table *nftables.Table, opts *NFTOpts) (qosmSets, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm sets")
 
 	var highPrio *nftables.Set
 	var lowPrio *nftables.Set
 
-	for _, set := range sets {
-		if set.Name == HIGHPRIOIPSETNAME {
-			Debug(opts.Logger, "nft: set lookup successfull", "name", HIGHPRIOIPSETNAME)
-			highPrio = set
+	highPrio, err := conn.GetSetByName(table, HIGHPRIOIPSETNAME)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && opts.CreateIfNotExists {
+			highPrio, err = addQosmIPSet(conn, table, HIGHPRIOIPSETNAME, opts.Logger)
+			if err != nil {
+				return qosmSets{}, err
+			}
+		} else if errors.Is(err, os.ErrNotExist) {
+			return qosmSets{}, ErrSetNotFound{Name: HIGHPRIOIPSETNAME}
+		} else {
+			return qosmSets{}, err
 		}
-		if set.Name == LOWPRIOIPSETNAME {
-			Debug(opts.Logger, "nft: set lookup successful", "name", LOWPRIOIPSETNAME)
-			lowPrio = set
-		}
+	} else {
+		util.Debug(opts.Logger, "nft: set found", "name", HIGHPRIOIPSETNAME)
 	}
 
-	if highPrio == nil {
-		if opts.CreateIfNotExists {
-			highPrio, err = addQoSMIPSet(conn, table, HIGHPRIOIPSETNAME, opts.Logger)
+	lowPrio, err = conn.GetSetByName(table, LOWPRIOIPSETNAME)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && opts.CreateIfNotExists {
+			lowPrio, err = addQosmIPSet(conn, table, LOWPRIOIPSETNAME, opts.Logger)
 			if err != nil {
 				return qosmSets{}, err
 			}
-		} else {
-			return qosmSets{}, ErrSetNotFound{Name: HIGHPRIOIPSETNAME}
-		}
-	}
-	if lowPrio == nil {
-		if opts.CreateIfNotExists {
-			lowPrio, err = addQoSMIPSet(conn, table, LOWPRIOIPSETNAME, opts.Logger)
-			if err != nil {
-				return qosmSets{}, err
-			}
-		} else {
+		} else if errors.Is(err, os.ErrNotExist) {
 			return qosmSets{}, ErrSetNotFound{Name: LOWPRIOIPSETNAME}
+		} else {
+			return qosmSets{}, err
 		}
+	} else {
+		util.Debug(opts.Logger, "nft: set found", "name", LOWPRIOIPSETNAME)
 	}
 
 	return qosmSets{
@@ -355,11 +346,11 @@ func lookupQoSMIPSets(conn *nftables.Conn, table *nftables.Table, opts *NFTOpts)
 	}, nil
 }
 
-// addQoSMIPSet creates and adds a new IP address set to the specified nftables table.
+// addQosmIPSet creates and adds a new IP address set to the specified nftables table.
 // The set is configured to store IPv4 addresses and is initialized as empty.
 // Returns the created set or an error if flushing fails.
-func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table, name string, logger *slog.Logger) (*nftables.Set, error) {
-	Debug(logger, "nft: creating set", "name", name)
+func addQosmIPSet(conn *nftables.Conn, table *nftables.Table, name string, logger *slog.Logger) (*nftables.Set, error) {
+	util.Debug(logger, "nft: creating set", "name", name)
 	set := &nftables.Set{
 		Table:    table,
 		Name:     name,
@@ -381,7 +372,7 @@ func addQoSMIPSet(conn *nftables.Conn, table *nftables.Table, name string, logge
 	return set, nil
 }
 
-func addIPsToQoSMIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
+func addIPsToIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
 	rangeElements := make([]nftables.SetElement, 2)
 	for _, network := range ipNetworks {
 		networkAddr := network.Masked().Addr()
@@ -446,7 +437,7 @@ func getRuleStats(rule *nftables.Rule) RuleStats {
 	return RuleStats{}
 }
 
-func deleteIPsFromQoSIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
+func deleteIPsFromIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
 	toDelete := make([]nftables.SetElement, 0, len(ipNetworks))
 
 	currentElements, err := getIPSetElements(conn, ipSet)

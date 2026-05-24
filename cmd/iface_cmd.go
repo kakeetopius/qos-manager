@@ -107,7 +107,11 @@ func IfaceDeleteCmd() *cobra.Command {
 			}
 
 			for _, iface := range args {
-				err = tc.FlushQdisc(iface)
+				dev, err := net.InterfaceByName(iface)
+				if err != nil {
+					return err
+				}
+				err = htbCtx.FlushQdisc(dev.Index)
 				if err != nil {
 					if errors.Is(err, tc.ErrQdiscNotFound) {
 						return fmt.Errorf("htb qdisc not found on interface -> %v", iface)
@@ -116,10 +120,6 @@ func IfaceDeleteCmd() *cobra.Command {
 				}
 
 				if nftTableFound {
-					dev, err := net.InterfaceByName(iface)
-					if err != nil {
-						return err
-					}
 					err = htbCtx.NFTFilter.DeleteIfaceRules(dev.Index)
 					if err != nil {
 						return err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/florianl/go-tc"
 	"github.com/kakeetopius/qosm/internal/core/nft"
+	"github.com/kakeetopius/qosm/internal/core/util"
 )
 
 func NewHTBCtx() (*HTBCtx, error) {
@@ -39,7 +40,7 @@ func (c *HTBCtx) InitHTBIface(ifaces ...string) error {
 		}
 
 		var htbIface *HTBIface
-		_, err = findRootQdisc(c.Conn, dev)
+		_, err = findRootQdisc(c.Conn, dev.Index)
 		if err != nil {
 			if !errors.Is(err, ErrQdiscNotFound) {
 				return err
@@ -73,12 +74,6 @@ func (c *HTBCtx) InitHTBFilter(createIfNotExists bool) error {
 	}
 	c.NFTFilter = &nftCtx
 
-	for ifIndex := range c.HTBIfaces {
-		err := c.NFTFilter.AddIfaceRules(ifIndex)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -103,12 +98,16 @@ func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
 }
 
 func (c *HTBCtx) FlushQdisc(ifIndex int) error {
-	c.Info("tc: delete_qdisc", "ifIndex", ifIndex)
+	util.Debug(c.Logger, "tc: delete_qdisc", "ifIndex", ifIndex)
 	qdisc := c.HTBIfaces[ifIndex]
 	if qdisc.Root == nil {
-		c.Info("tc: delete_qdisc", "ifIndex", ifIndex, "msg", "nothing to delete")
-		return nil
+		root, err := findRootQdisc(c.Conn, ifIndex)
+		if err != nil {
+			return err
+		}
+		qdisc.Root = root
 	}
+	delete(c.HTBIfaces, ifIndex)
 	return c.deleteQdisc(qdisc.Root)
 }
 
@@ -122,7 +121,7 @@ func HasHTBQdisc(iface *net.Interface) (bool, error) {
 		return false, err
 	}
 
-	_, err = findRootQdisc(tcnl, iface)
+	_, err = findRootQdisc(tcnl, iface.Index)
 	if err != nil {
 		if errors.Is(err, ErrQdiscNotFound) {
 			return false, nil
@@ -133,57 +132,22 @@ func HasHTBQdisc(iface *net.Interface) (bool, error) {
 	}
 }
 
-func FindHTBEnabledIfaces() ([]string, error) {
+func FindHTBEnabledIfaces() ([]net.Interface, error) {
 	devs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
 
-	htbEnabledIfaces := make([]string, 0, len(devs))
+	htbEnabledIfaces := make([]net.Interface, 0, len(devs))
 	for _, dev := range devs {
 		htbEnabled, err := HasHTBQdisc(&dev)
 		if err != nil {
 			return nil, err
 		}
 		if htbEnabled {
-			htbEnabledIfaces = append(htbEnabledIfaces, dev.Name)
+			htbEnabledIfaces = append(htbEnabledIfaces, dev)
 		}
 	}
 
 	return htbEnabledIfaces, nil
-}
-
-func FlushQdisc(iface string) error {
-	tcnl, err := tc.Open(&tc.Config{})
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		closeErr := tcnl.Close()
-		if closeErr != nil {
-			err = fmt.Errorf("%w", closeErr)
-		}
-	}()
-
-	dev, err := net.InterfaceByName(iface)
-	if err != nil {
-		return err
-	}
-
-	qdisc, err := findRootQdisc(tcnl, dev)
-	if err != nil {
-		return err
-	}
-
-	htbCtx := HTBCtx{
-		Conn: tcnl,
-	}
-	if qdisc != nil {
-		err = htbCtx.deleteQdisc(qdisc)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
