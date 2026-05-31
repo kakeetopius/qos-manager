@@ -44,6 +44,7 @@ func init() {
 		WebCmd(),
 		RuleCmd(),
 		IfaceCmd(),
+		RestoreCmd(),
 	)
 }
 

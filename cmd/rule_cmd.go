@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/core/tc"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/rules"
 	"github.com/pterm/pterm"
@@ -39,7 +39,7 @@ func RuleAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			htbCtx, err := tc.NewHTBCtx()
+			htbCtx, err := htb.NewHTBCtx()
 			if err != nil {
 				return err
 			}
@@ -93,7 +93,7 @@ func RuleDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			htbCtx, err := tc.NewHTBCtx()
+			htbCtx, err := htb.NewHTBCtx()
 			if err != nil {
 				return err
 			}
@@ -143,7 +143,7 @@ func RuleDeleteCmd() *cobra.Command {
 func RuleFlushCmd() *cobra.Command {
 	ruleFlushCmd := cobra.Command{
 		Use:     "flush",
-		Short:   "Flush all qosm rules.",
+		Short:   "Flush all QoS rules.",
 		Aliases: []string{"f"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbConn, err := db.NewConn()
@@ -151,7 +151,7 @@ func RuleFlushCmd() *cobra.Command {
 				return err
 			}
 
-			err = rules.DeleteAllRules(dbConn)
+			err = rules.DeleteAll(dbConn, nil)
 			if err != nil {
 				return err
 			}
@@ -166,7 +166,7 @@ func RuleFlushCmd() *cobra.Command {
 func RuleListCmd() *cobra.Command {
 	ruleListCmd := cobra.Command{
 		Use:     "list",
-		Short:   "List qosm priority rules.",
+		Short:   "List all QoS rules.",
 		Aliases: []string{"l"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbConn, err := db.NewConn()

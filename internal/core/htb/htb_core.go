@@ -1,5 +1,5 @@
-// Package tc is used to interface with the traffic control subsystem to manipulate rules.
-package tc
+// Package htb is used to interface with the traffic control subsystem to manipulate rules.
+package htb
 
 import (
 	"net"
@@ -18,43 +18,43 @@ func (c *HTBCtx) createQdisc(dev *net.Interface) (*HTBIface, error) {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding root qdisc", "name", "root")
+	util.Debug(c.Logger, "htb: adding root qdisc", "name", "root")
 	rootHtbQdisc, err := c.addRootQdisc(dev)
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding class", "name", "htb_parent_class")
+	util.Debug(c.Logger, "htb: adding class", "name", "htb_parent_class")
 	htbParentClass, err := c.addHtbClass(dev, ParentClass())
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding class", "name", "high_priority_class")
+	util.Debug(c.Logger, "htb: adding class", "name", "high_priority_class")
 	highClass, err := c.addHtbClass(dev, HighClass())
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding class", "name", "low_priority_class")
+	util.Debug(c.Logger, "htb: adding class", "name", "low_priority_class")
 	lowClass, err := c.addHtbClass(dev, LowClass())
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding class", "name", "default_class")
+	util.Debug(c.Logger, "htb: adding class", "name", "default_class")
 	defaultClass, err := c.addHtbClass(dev, DefaultClass())
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding filter", "name", "high_priority_filter")
+	util.Debug(c.Logger, "htb: adding filter", "name", "high_priority_filter")
 	highPriofilter, err := c.addFWFilter(dev, HighPrioClassFilter())
 	if err != nil {
 		return nil, err
 	}
 
-	util.Debug(c.Logger, "tc: adding filter", "name", "low_priority_filter")
+	util.Debug(c.Logger, "htb: adding filter", "name", "low_priority_filter")
 	lowPrioFilter, err := c.addFWFilter(dev, LowPrioClassFilter())
 	if err != nil {
 		return nil, err
@@ -262,16 +262,16 @@ func (c *HTBCtx) mapClassesByHandle(classes []tc.Object, iface *net.Interface) m
 		}
 		switch class.Handle {
 		case HTBPARENTCLASSHANDLE:
-			util.Debug(c.Logger, "tc: class found", "name", "parent_class")
+			util.Debug(c.Logger, "htb: class found", "name", "parent_class")
 			classMap[class.Handle] = &classes[i]
 		case HTBHIGHPRIOCLASSHANDLE:
-			util.Debug(c.Logger, "tc: class found", "name", "high_priority_class")
+			util.Debug(c.Logger, "htb: class found", "name", "high_priority_class")
 			classMap[class.Handle] = &classes[i]
 		case HTBLOWPRIOCLASSHANDLE:
-			util.Debug(c.Logger, "tc: class found", "name", "low_priority_class")
+			util.Debug(c.Logger, "htb: class found", "name", "low_priority_class")
 			classMap[class.Handle] = &classes[i]
 		case HTBDEFAULTCLASSHANDLE:
-			util.Debug(c.Logger, "tc: class found", "name", "default_class")
+			util.Debug(c.Logger, "htb: class found", "name", "default_class")
 			classMap[class.Handle] = &classes[i]
 		}
 	}
@@ -315,10 +315,10 @@ func (c *HTBCtx) mapFiltersByHandle(filters []tc.Object, iface *net.Interface) m
 		}
 		switch htbFilter.Handle {
 		case nft.HIGHPRIOMARK:
-			util.Debug(c.Logger, "tc: filter found", "name", "high_priority_filter")
+			util.Debug(c.Logger, "htb: filter found", "name", "high_priority_filter")
 			filterMap[htbFilter.Handle] = &filters[i]
 		case nft.LOWPRIOMARK:
-			util.Debug(c.Logger, "tc: filter found", "name", "low_priority_filter")
+			util.Debug(c.Logger, "htb: filter found", "name", "low_priority_filter")
 			filterMap[htbFilter.Handle] = &filters[i]
 		}
 	}

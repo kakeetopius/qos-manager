@@ -1,4 +1,4 @@
-package tc
+package htb
 
 import (
 	"errors"
@@ -98,7 +98,7 @@ func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
 }
 
 func (c *HTBCtx) FlushQdisc(ifIndex int) error {
-	util.Debug(c.Logger, "tc: delete_qdisc", "ifIndex", ifIndex)
+	util.Debug(c.Logger, "htb: delete_qdisc", "ifIndex", ifIndex)
 	qdisc := c.HTBIfaces[ifIndex]
 	if qdisc.Root == nil {
 		root, err := findRootQdisc(c.Conn, ifIndex)

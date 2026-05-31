@@ -14,7 +14,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/kakeetopius/qosm/internal/core/tc"
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/web/routes"
 	_ "modernc.org/sqlite"
@@ -168,8 +168,8 @@ func createRenderer() (multitemplate.Renderer, error) {
 	return r, nil
 }
 
-func setUpHTBContext(enabledIfaces []routes.Interface, logger *slog.Logger) (*tc.HTBCtx, error) {
-	htbCtx, err := tc.NewHTBCtx()
+func setUpHTBContext(enabledIfaces []routes.Interface, logger *slog.Logger) (*htb.HTBCtx, error) {
+	htbCtx, err := htb.NewHTBCtx()
 	if err != nil {
 		return nil, err
 	}

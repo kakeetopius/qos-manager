@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/tc"
 )
 
 func (app *ServerCtx) PostSystemSettings(c *gin.Context) {
@@ -113,21 +114,8 @@ func enableQoS(app *ServerCtx, ifaceName string) error {
 	if iface.Enabled {
 		return nil
 	}
-	err := app.HTBCtx.InitHTBIface(ifaceName)
-	if err != nil {
-		return err
-	}
 
-	err = app.HTBCtx.NFTFilter.AddIfaceRules(iface.Index)
-	if err != nil {
-		return err
-	}
-
-	err = db.AddInterface(app.DB, db.Interface{
-		Name:       iface.Name,
-		IfaceIndex: iface.Index,
-		Enabled:    true,
-	})
+	err := tc.EnableTcOnInterface(net.Interface{Name: iface.Name, Index: iface.Index}, app.HTBCtx, app.DB)
 	if err != nil {
 		return err
 	}
@@ -144,17 +132,7 @@ func disableQoS(app *ServerCtx, ifaceName string) error {
 		return nil
 	}
 
-	err := app.HTBCtx.FlushQdisc(iface.Index)
-	if err != nil {
-		return err
-	}
-
-	err = app.HTBCtx.NFTFilter.DeleteIfaceRules(iface.Index)
-	if err != nil {
-		return err
-	}
-
-	err = db.DisableInterface(app.DB, iface.Name)
+	err := tc.DisableTcOnInterface(net.Interface{Name: iface.Name, Index: iface.Index}, app.HTBCtx, app.DB)
 	if err != nil {
 		return err
 	}

@@ -391,7 +391,7 @@ func addIPsToIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.
 		err = conn.Flush()
 		if err != nil {
 			if errors.Is(err, os.ErrExist) {
-				return fmt.Errorf("%s is already part of one of the IP ranges", network.String())
+				return fmt.Errorf("%s is already a subnet or supernet of one of the IP ranges", network.String())
 			}
 			return err
 		}

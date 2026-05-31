@@ -93,6 +93,38 @@ func GetAllInterfaces(db *sql.DB) ([]Interface, error) {
 	return interfaces, nil
 }
 
+func GetEnabledInterfaces(db *sql.DB) ([]Interface, error) {
+	rows, err := db.Query(`
+		SELECT if_index, name, enabled
+		FROM interfaces
+		WHERE enabled = 1
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var interfaces []Interface
+	var enabled int
+
+	for rows.Next() {
+		var iface Interface
+		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &enabled)
+		if err != nil {
+			return nil, err
+		}
+
+		iface.Enabled = enabled == 1
+		interfaces = append(interfaces, iface)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return interfaces, nil
+}
+
 func InterfaceByName(db *sql.DB, name string) (Interface, error) {
 	row := db.QueryRow(`
 		SELECT if_index, name, enabled 

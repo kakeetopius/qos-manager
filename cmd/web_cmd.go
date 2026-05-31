@@ -8,7 +8,7 @@ import (
 func WebCmd() *cobra.Command {
 	webCmd := cobra.Command{
 		Use:   "web",
-		Short: "Manage web server and its configurations.",
+		Short: "Manage the web server and its configurations.",
 	}
 
 	webCmd.AddCommand(runWeb())

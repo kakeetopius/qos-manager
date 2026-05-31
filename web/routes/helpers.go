@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/kakeetopius/qosm/internal/core/tc"
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
@@ -18,7 +18,7 @@ type ServerCtx struct {
 	DB       *sql.DB
 	Logger   *slog.Logger
 	Ifaces   map[string]Interface
-	HTBCtx   *tc.HTBCtx
+	HTBCtx   *htb.HTBCtx
 	Settings *db.Settings
 }
 

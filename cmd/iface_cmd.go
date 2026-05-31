@@ -7,39 +7,40 @@ import (
 	"net"
 	"os"
 
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/core/tc"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/tc"
 	"github.com/spf13/cobra"
 )
 
 func IfaceCmd() *cobra.Command {
 	ifaceCmd := cobra.Command{
 		Use:     "iface",
-		Short:   "Add or remove the qdisc from an interface",
+		Short:   "Manage traffic control settings for an interface.",
 		Aliases: []string{"i"},
 	}
 
 	ifaceCmd.AddCommand(
-		IfaceAddCmd(),
-		IfaceDeleteCmd(),
+		IfaceEnableCmd(),
+		IfaceDisableCmd(),
 		IfaceStats(),
 	)
 	return &ifaceCmd
 }
 
-func IfaceAddCmd() *cobra.Command {
-	ifaceAddCmd := cobra.Command{
-		Use:     "add iface...",
-		Short:   "Add the htb qdisc on an interface(s)",
-		Aliases: []string{"a"},
+func IfaceEnableCmd() *cobra.Command {
+	ifaceEnableCmd := cobra.Command{
+		Use:     "enable interfaces...",
+		Short:   "Enable the htb qdisc on an interface(s)",
+		Aliases: []string{"e"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dbConn, err := db.NewConn()
 			if err != nil {
 				return err
 			}
-			htbCtx, err := tc.NewHTBCtx()
+			htbCtx, err := htb.NewHTBCtx()
 			if err != nil {
 				return err
 			}
@@ -61,36 +62,24 @@ func IfaceAddCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				err = htbCtx.InitHTBIface(iface)
+				err = tc.EnableTcOnInterface(*dev, htbCtx, dbConn)
 				if err != nil {
 					return err
 				}
-				err = htbCtx.NFTFilter.AddIfaceRules(dev.Index)
-				if err != nil {
-					return err
-				}
-				err = db.AddInterface(dbConn, db.Interface{Name: dev.Name, IfaceIndex: dev.Index, Enabled: true})
-				if err != nil {
-					return err
-				}
-			}
-
-			fmt.Printf("Successfully added HTB qdisc on interfaces: \n")
-			for _, arg := range args {
-				fmt.Printf("%v\n", arg)
+				fmt.Printf("Successfully enabled HTB qdisc on interfaces: %v\n", iface)
 			}
 
 			return nil
 		},
 	}
 
-	return &ifaceAddCmd
+	return &ifaceEnableCmd
 }
 
-func IfaceDeleteCmd() *cobra.Command {
-	ifaceDeleteCmd := cobra.Command{
-		Use:     "delete iface...",
-		Short:   "Remove the htb qdisc from an interface(s)",
+func IfaceDisableCmd() *cobra.Command {
+	ifaceDisableCmd := cobra.Command{
+		Use:     "disable interfaces...",
+		Short:   "Disable the htb qdisc from an interface(s)",
 		Aliases: []string{"d"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -98,7 +87,7 @@ func IfaceDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			htbCtx, err := tc.NewHTBCtx()
+			htbCtx, err := htb.NewHTBCtx()
 			if err != nil {
 				return err
 			}
@@ -111,12 +100,11 @@ func IfaceDeleteCmd() *cobra.Command {
 			}
 
 			err = htbCtx.InitHTBFilter(false)
-			nftTableFound := true
 			if err != nil {
 				if !errors.Is(err, nft.ErrTableNotFound) {
 					return err
 				}
-				nftTableFound = false
+				htbCtx.NFTFilter = nil
 			}
 
 			for _, iface := range args {
@@ -124,43 +112,28 @@ func IfaceDeleteCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				err = htbCtx.FlushQdisc(dev.Index)
-				if err != nil {
-					if errors.Is(err, tc.ErrQdiscNotFound) {
-						return fmt.Errorf("htb qdisc not found on interface -> %v", iface)
-					}
-					return err
-				}
-
-				if nftTableFound {
-					err = htbCtx.NFTFilter.DeleteIfaceRules(dev.Index)
-					if err != nil {
-						return err
-					}
-				}
-
-				err = db.DisableInterface(dbCon, dev.Name)
+				err = tc.DisableTcOnInterface(*dev, htbCtx, dbCon)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("Successfully deleted HTB qdisc on interface: %v\n", iface)
+				fmt.Printf("Successfully disabled the HTB qdisc on interface: %v\n", iface)
 			}
 
 			return nil
 		},
 	}
 
-	return &ifaceDeleteCmd
+	return &ifaceDisableCmd
 }
 
 func IfaceStats() *cobra.Command {
 	ifaceAddCmd := cobra.Command{
-		Use:     "stats",
-		Short:   "Get htb stats for the interface.",
+		Use:     "stats <inteface>",
+		Short:   "Get htb stats for an interface.",
 		Aliases: []string{"s"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			htbCtx, err := tc.NewHTBCtx()
+			htbCtx, err := htb.NewHTBCtx()
 			if err != nil {
 				return err
 			}

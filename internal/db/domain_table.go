@@ -22,6 +22,20 @@ type DomainIP struct {
 	DomainID int
 }
 
+func (r DomainRule) IPsAsPrefix() ([]netip.Prefix, error) {
+	addrs := make([]netip.Prefix, 0, len(r.IPs))
+
+	for _, ip := range r.IPs {
+		addr, err := netip.ParsePrefix(ip.IP)
+		if err != nil {
+			return nil, err
+		}
+		addrs = append(addrs, addr)
+	}
+
+	return addrs, nil
+}
+
 func CheckDomainRuleExists(db *sql.DB, domain string) (bool, error) {
 	var exists bool
 

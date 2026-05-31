@@ -165,5 +165,10 @@ func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 func (c *NFTCtx) DeleteTable() error {
 	fmt.Println("Deleting table")
 	c.conn.DelTable(c.Table)
-	return c.conn.Flush()
+	err := c.conn.Flush()
+	if err != nil {
+		return err
+	}
+	c = nil
+	return nil
 }
