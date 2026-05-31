@@ -9,7 +9,7 @@ import (
 
 	"github.com/florianl/go-tc"
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/core/util"
+	"github.com/kakeetopius/qosm/internal/util"
 )
 
 func NewHTBCtx() (*HTBCtx, error) {

@@ -179,7 +179,7 @@ func GetDomainRuleByID(db *sql.DB, id int) (DomainRule, error) {
 	return rules[0], err
 }
 
-func DeleteDomainRuleByID(db *sql.DB, id int) error {
+func DeleteDomainRuleByID(db *sql.DB, id int, priority string) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		return err
@@ -188,12 +188,13 @@ func DeleteDomainRuleByID(db *sql.DB, id int) error {
 	_, err = db.Exec(`
 		DELETE FROM domainrules
 		WHERE id = ?
-	`, id)
+			AND priority = ?
+	`, id, priority)
 
 	return err
 }
 
-func DeleteDomainRuleByName(db *sql.DB, name string) error {
+func DeleteDomainRuleByName(db *sql.DB, name string, priority string) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		return err
@@ -201,7 +202,20 @@ func DeleteDomainRuleByName(db *sql.DB, name string) error {
 	_, err = db.Exec(`
 		DELETE FROM domainrules
 		WHERE domain_name = ?
-	`, name)
+			AND priority = ?
+	`, name, priority)
+
+	return err
+}
+
+func FlushDomainRules(db *sql.DB) error {
+	_, err := db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		DELETE FROM domainrules
+	`)
 
 	return err
 }

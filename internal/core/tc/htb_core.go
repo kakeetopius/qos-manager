@@ -7,7 +7,7 @@ import (
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/core/util"
+	"github.com/kakeetopius/qosm/internal/util"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
 )

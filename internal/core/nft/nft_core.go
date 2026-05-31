@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/nftables"
 	"github.com/google/nftables/expr"
-	"github.com/kakeetopius/qosm/internal/core/util"
+	"github.com/kakeetopius/qosm/internal/util"
 )
 
 func NewNFTCtx(opts NFTOpts) (NFTCtx, error) {

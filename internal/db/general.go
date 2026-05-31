@@ -67,3 +67,12 @@ func SetUp(db *sql.DB) error {
 
 	return nil
 }
+
+func NewConn() (*sql.DB, error) {
+	db, err := Connect()
+	if err != nil {
+		return nil, err
+	}
+	err = SetUp(db)
+	return db, err
+}

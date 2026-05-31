@@ -9,6 +9,7 @@ import (
 
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/core/tc"
+	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +35,10 @@ func IfaceAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			dbConn, err := db.NewConn()
+			if err != nil {
+				return err
+			}
 			htbCtx, err := tc.NewHTBCtx()
 			if err != nil {
 				return err
@@ -64,6 +69,10 @@ func IfaceAddCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				err = db.AddInterface(dbConn, db.Interface{Name: dev.Name, IfaceIndex: dev.Index, Enabled: true})
+				if err != nil {
+					return err
+				}
 			}
 
 			fmt.Printf("Successfully added HTB qdisc on interfaces: \n")
@@ -85,6 +94,10 @@ func IfaceDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			dbCon, err := db.NewConn()
+			if err != nil {
+				return err
+			}
 			htbCtx, err := tc.NewHTBCtx()
 			if err != nil {
 				return err
@@ -124,6 +137,11 @@ func IfaceDeleteCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
+				}
+
+				err = db.DisableInterface(dbCon, dev.Name)
+				if err != nil {
+					return err
 				}
 				fmt.Printf("Successfully deleted HTB qdisc on interface: %v\n", iface)
 			}

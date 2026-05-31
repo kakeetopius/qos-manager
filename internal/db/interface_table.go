@@ -160,6 +160,9 @@ func EnableInterface(db *sql.DB, name string) error {
 func InterfaceEnabled(db *sql.DB, name string) (bool, error) {
 	enabled, err := getField(db, name, "enabled")
 	if err != nil {
+		if errors.Is(err, ErrNotExists) {
+			return false, nil
+		}
 		return false, err
 	}
 

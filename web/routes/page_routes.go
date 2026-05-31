@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/pam"
+	"github.com/kakeetopius/qosm/internal/rules"
 )
 
 func (app *ServerCtx) LoginPost(ctx *gin.Context) {
@@ -52,17 +53,17 @@ func (app *ServerCtx) LoginPage(c *gin.Context) {
 func (app *ServerCtx) DashboardPage(c *gin.Context) {
 	session := sessions.Default(c)
 	enabled := app.EnabledIfaces()
-	rules, err := getAllRules(app)
+	allRules, err := rules.GetAll(app.DB)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	slices.SortFunc(rules, func(a, b Rule) int {
+	slices.SortFunc(allRules, func(a, b rules.Rule) int {
 		return -a.CreatedAt.Compare(b.CreatedAt)
 	})
 
-	if len(rules) > 5 {
-		rules = rules[:5]
+	if len(allRules) > 5 {
+		allRules = allRules[:5]
 	}
 
 	c.HTML(http.StatusOK, "dashboard", gin.H{
@@ -72,13 +73,13 @@ func (app *ServerCtx) DashboardPage(c *gin.Context) {
 		"Role":        session.Get("role"),
 		"Settings":    app.Settings,
 		"Enabled":     len(enabled) > 0,
-		"Rules":       rules,
+		"Rules":       allRules,
 	})
 }
 
 func (app *ServerCtx) RulesPage(c *gin.Context) {
 	session := sessions.Default(c)
-	rules, err := getAllRules(app)
+	rules, err := rules.GetAll(app.DB)
 	if err != nil {
 		c.Error(err)
 		return

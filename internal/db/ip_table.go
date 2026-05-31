@@ -113,20 +113,30 @@ func GetIPRuleByID(db *sql.DB, id int) (IPRule, error) {
 	return rule, nil
 }
 
-func DeleteIPRuleByName(db *sql.DB, name string) error {
+func DeleteIPRuleByName(db *sql.DB, name string, priority string) error {
 	_, err := db.Exec(`
 		DELETE FROM iprules
 		WHERE ip = ?
-	`, name)
+		 AND priority = ?
+	`, name, priority)
 
 	return err
 }
 
-func DeleteIPRuleByID(db *sql.DB, id int) error {
+func DeleteIPRuleByID(db *sql.DB, id int, priority string) error {
 	_, err := db.Exec(`
 		DELETE FROM iprules
 		WHERE id = ?
-	`, id)
+			AND priority = ?
+	`, id, priority)
+
+	return err
+}
+
+func FlushIPRules(db *sql.DB) error {
+	_, err := db.Exec(`
+		DELETE FROM iprules
+	`)
 
 	return err
 }

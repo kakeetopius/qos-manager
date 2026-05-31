@@ -4,7 +4,6 @@ package web
 import (
 	"database/sql"
 	"embed"
-	"errors"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -201,11 +200,7 @@ func initNetInterfaces(dbConn *sql.DB) (map[string]routes.Interface, error) {
 	for _, iface := range ifaces {
 		enabled, err := db.InterfaceEnabled(dbConn, iface.Name)
 		if err != nil {
-			if errors.Is(err, db.ErrNotExists) {
-				enabled = false
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 		netIfaces[iface.Name] = routes.Interface{
 			Interface: iface,
