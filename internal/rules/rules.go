@@ -82,17 +82,17 @@ func AddIPRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, ip string, priority string, lo
 		return Rule{}, fmt.Errorf("htb context not intialised")
 	}
 	rule := Rule{}
-	exists, err := db.CheckIPRuleExists(dbCon, ip)
+	addrs, err := util.TargetsFromString(ip)
+	if err != nil {
+		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
+	}
+
+	exists, err := db.CheckIPRuleExists(dbCon, addrs[0].String())
 	if err != nil {
 		return rule, err
 	}
 	if exists {
 		return rule, fmt.Errorf("rule for %v already exists", ip)
-	}
-
-	addrs, err := util.TargetsFromString(ip)
-	if err != nil {
-		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
 	}
 
 	util.Debug(logger, "add_rule", "target", ip, "priority", priority)

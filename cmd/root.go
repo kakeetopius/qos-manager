@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path"
 
 	"github.com/spf13/cobra"
@@ -54,7 +55,7 @@ func initConfig() error {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		configDir, err := os.UserConfigDir()
+		configDir, err := configDir()
 		if err != nil {
 			return err
 		}
@@ -77,6 +78,7 @@ func initConfig() error {
 		}
 		return fmt.Errorf("error reading config file %v: %w", viper.ConfigFileUsed(), err)
 	}
+
 	if debug {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
@@ -86,10 +88,34 @@ func initConfig() error {
 
 func versionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Get the version",
+		Use:     "version",
+		Short:   "Show the version",
+		Aliases: []string{"v"},
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(qosVersion)
 		},
+	}
+}
+
+// configDir returns the user's configuration directory.
+// When running as root, it resolves the original sudo user's home directory
+// and returns its .config path. Otherwise, it uses the current user's config
+// directory.
+func configDir() (string, error) {
+	home := ""
+	if os.Geteuid() == 0 {
+		// running as root
+		sudoUser := os.Getenv("SUDO_USER")
+		if sudoUser == "" {
+			return "", fmt.Errorf("could not get sudo user variable")
+		}
+		u, err := user.Lookup(sudoUser)
+		if err != nil {
+			return "", err
+		}
+		home = u.HomeDir
+		return path.Join(home, ".config"), nil
+	} else {
+		return os.UserConfigDir()
 	}
 }
