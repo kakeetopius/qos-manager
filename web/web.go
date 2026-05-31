@@ -2,7 +2,9 @@
 package web
 
 import (
+	"database/sql"
 	"embed"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -14,7 +16,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/tc"
-	"github.com/kakeetopius/qosm/web/db"
+	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/web/routes"
 	_ "modernc.org/sqlite"
 )
@@ -51,7 +53,7 @@ func Run(opts ServerOptions) error {
 		return err
 	}
 
-	ifaces, err := initNetInterfaces()
+	ifaces, err := initNetInterfaces(dbConn)
 	if err != nil {
 		return err
 	}
@@ -189,7 +191,7 @@ func setUpHTBContext(enabledIfaces []routes.Interface, logger *slog.Logger) (*tc
 	return htbCtx, nil
 }
 
-func initNetInterfaces() (map[string]routes.Interface, error) {
+func initNetInterfaces(dbConn *sql.DB) (map[string]routes.Interface, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
@@ -197,11 +199,14 @@ func initNetInterfaces() (map[string]routes.Interface, error) {
 
 	netIfaces := make(map[string]routes.Interface, len(ifaces))
 	for _, iface := range ifaces {
-		enabled, err := tc.HasHTBQdisc(&iface)
+		enabled, err := db.InterfaceEnabled(dbConn, iface.Name)
 		if err != nil {
-			return nil, err
+			if errors.Is(err, db.ErrNotExists) {
+				enabled = false
+			} else {
+				return nil, err
+			}
 		}
-
 		netIfaces[iface.Name] = routes.Interface{
 			Interface: iface,
 			Enabled:   enabled,

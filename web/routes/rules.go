@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/tc"
 	"github.com/kakeetopius/qosm/internal/core/util"
-	"github.com/kakeetopius/qosm/web/db"
+	"github.com/kakeetopius/qosm/internal/db"
 )
 
 type PostForm struct {

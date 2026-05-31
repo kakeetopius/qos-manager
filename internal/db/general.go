@@ -51,6 +51,13 @@ func SetUp(db *sql.DB) error {
 			REFERENCES domainrules(id)
 			ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS interfaces (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		if_index INTEGER NOT NULL UNIQUE,
+		name TEXT NOT NULL UNIQUE,
+		enabled BOOLEAN NOT NULL
+	);
     `
 
 	_, err := db.Exec(schema)

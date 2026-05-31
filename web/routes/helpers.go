@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"github.com/kakeetopius/qosm/internal/core/tc"
-	"github.com/kakeetopius/qosm/web/db"
+	"github.com/kakeetopius/qosm/internal/db"
 )
 
 type Interface struct {

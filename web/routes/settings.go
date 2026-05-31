@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kakeetopius/qosm/web/db"
+	"github.com/kakeetopius/qosm/internal/db"
 )
 
 func (app *ServerCtx) PostSystemSettings(c *gin.Context) {
@@ -123,6 +123,15 @@ func enableQoS(app *ServerCtx, ifaceName string) error {
 		return err
 	}
 
+	err = db.AddInterface(app.DB, db.Interface{
+		Name:       iface.Name,
+		IfaceIndex: iface.Index,
+		Enabled:    true,
+	})
+	if err != nil {
+		return err
+	}
+
 	iface.Enabled = true
 	app.Ifaces[ifaceName] = iface
 
@@ -141,6 +150,11 @@ func disableQoS(app *ServerCtx, ifaceName string) error {
 	}
 
 	err = app.HTBCtx.NFTFilter.DeleteIfaceRules(iface.Index)
+	if err != nil {
+		return err
+	}
+
+	err = db.DisableInterface(app.DB, iface.Name)
 	if err != nil {
 		return err
 	}
