@@ -60,11 +60,11 @@ func IfaceEnableCmd() *cobra.Command {
 			for _, iface := range args {
 				dev, err := net.InterfaceByName(iface)
 				if err != nil {
-					return err
+					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
 				err = tc.EnableTcOnInterface(*dev, htbCtx, dbConn)
 				if err != nil {
-					return err
+					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
 				fmt.Printf("Successfully enabled HTB qdisc on interfaces: %v\n", iface)
 			}
@@ -110,11 +110,11 @@ func IfaceDisableCmd() *cobra.Command {
 			for _, iface := range args {
 				dev, err := net.InterfaceByName(iface)
 				if err != nil {
-					return err
+					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
 				err = tc.DisableTcOnInterface(*dev, htbCtx, dbCon)
 				if err != nil {
-					return err
+					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
 				fmt.Printf("Successfully disabled the HTB qdisc on interface: %v\n", iface)
 			}

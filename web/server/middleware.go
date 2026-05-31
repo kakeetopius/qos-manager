@@ -1,12 +1,12 @@
-package web
+package routes
 
 import (
 	"errors"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/kakeetopius/qosm/web/routes"
 )
 
 func ErrorHandlerJSON() gin.HandlerFunc {
@@ -19,7 +19,7 @@ func ErrorHandlerJSON() gin.HandlerFunc {
 
 		err := ctx.Errors.Last().Err
 
-		var serverError routes.ServerError
+		var serverError ServerError
 		if errors.As(err, &serverError) {
 			ctx.JSON(serverError.StatusCode, gin.H{
 				"success": false,
@@ -39,7 +39,7 @@ func ErrorHandlerHTML() gin.HandlerFunc {
 
 		err := ctx.Errors.Last().Err
 
-		var serverError routes.ServerError
+		var serverError ServerError
 		if errors.As(err, &serverError) {
 			ctx.HTML(serverError.StatusCode, "fail", gin.H{
 				"Error": serverError.Error(),
@@ -48,7 +48,7 @@ func ErrorHandlerHTML() gin.HandlerFunc {
 	}
 }
 
-func ErrorHandlerToast(app *routes.ServerCtx) gin.HandlerFunc {
+func ErrorHandlerToast(app *ServerCtx) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 
@@ -66,7 +66,7 @@ func ErrorHandlerToast(app *routes.ServerCtx) gin.HandlerFunc {
 	}
 }
 
-func AuthRequired(app *routes.ServerCtx) gin.HandlerFunc {
+func AuthRequired(app *ServerCtx) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 
@@ -85,4 +85,10 @@ func AuthRequired(app *routes.ServerCtx) gin.HandlerFunc {
 
 		ctx.Next()
 	}
+}
+
+func (app *ServerCtx) SetUpSessionMiddleWare(router *gin.Engine) {
+	store := cookie.NewStore([]byte("cookie-key"))
+
+	router.Use(sessions.Sessions("qosm-session", store))
 }
