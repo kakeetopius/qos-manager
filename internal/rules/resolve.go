@@ -59,7 +59,7 @@ func clearOldIPs(dbConn *sql.DB, htbCtx *htb.HTBCtx, domain *db.DomainRule, oldI
 		return err
 	}
 
-	err = htbCtx.DelRule(oldIPs, prio)
+	err = htbCtx.RemoveTargetsFromPriority(oldIPs, prio)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func addNewIPs(dbConn *sql.DB, htbCtx *htb.HTBCtx, domain *db.DomainRule, newIPs
 		return err
 	}
 
-	err = htbCtx.AddRule(newIPs, prio)
+	err = htbCtx.AddTargetsToPriority(newIPs, prio)
 	if err != nil {
 		return err
 	}

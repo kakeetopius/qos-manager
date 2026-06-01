@@ -3,8 +3,8 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
-	"slices"
 )
 
 type Settings struct {
@@ -23,7 +23,7 @@ func LoadSettings(db *sql.DB) (*Settings, error) {
 	}
 
 	if exists {
-		return GetSettingsRow(db)
+		return getSettingsRow(db)
 	}
 
 	defaultSettings := Settings{
@@ -32,7 +32,7 @@ func LoadSettings(db *sql.DB) (*Settings, error) {
 		MaxBandwidth:   1000,
 	}
 
-	err = AddSettingsRow(db, &defaultSettings)
+	err = addSettingsRow(db, &defaultSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,15 @@ func UpdateSettings(db *sql.DB, s *Settings) error {
 	return err
 }
 
-func UpdateSettingField(db *sql.DB, field string, value any) error {
-	allowed := []string{"logging_level", "max_bandwidth", "dns_override", "primary_dns", "session_timeout"}
-	if !slices.Contains(allowed, field) {
+func UpdateSettingsField(db *sql.DB, field string, value any) error {
+	allowed := map[string]struct{}{
+		"logging_level":   {},
+		"max_bandwidth":   {},
+		"dns_override":    {},
+		"primary_dns":     {},
+		"session_timeout": {},
+	}
+	if _, ok := allowed[field]; !ok {
 		return fmt.Errorf("unknown field: %v", field)
 	}
 
@@ -73,6 +79,40 @@ func UpdateSettingField(db *sql.DB, field string, value any) error {
 
 	_, err := db.Exec(query, value)
 	return err
+}
+
+func GetSettingsField(db *sql.DB, field string) (any, error) {
+	allowed := map[string]struct{}{
+		"logging_level":   {},
+		"max_bandwidth":   {},
+		"dns_override":    {},
+		"primary_dns":     {},
+		"session_timeout": {},
+	}
+	if _, ok := allowed[field]; !ok {
+		return nil, fmt.Errorf("unknown field: %v", field)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s 
+		FROM settings
+		WHERE id = 1
+	`, field)
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	row := stmt.QueryRow()
+
+	var value any
+	err = row.Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotExists
+	}
+
+	return value, nil
 }
 
 func CheckSettingsExists(db *sql.DB) (bool, error) {
@@ -92,7 +132,7 @@ func CheckSettingsExists(db *sql.DB) (bool, error) {
 	return exists, nil
 }
 
-func AddSettingsRow(db *sql.DB, settings *Settings) error {
+func addSettingsRow(db *sql.DB, settings *Settings) error {
 	_, err := db.Exec(
 		`
     INSERT OR IGNORE INTO settings (
@@ -112,7 +152,7 @@ func AddSettingsRow(db *sql.DB, settings *Settings) error {
 	return err
 }
 
-func GetSettingsRow(db *sql.DB) (*Settings, error) {
+func getSettingsRow(db *sql.DB) (*Settings, error) {
 	var (
 		dnsOverride int
 		s           Settings

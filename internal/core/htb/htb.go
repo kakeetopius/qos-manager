@@ -77,7 +77,7 @@ func (c *HTBCtx) InitHTBFilter(createIfNotExists bool) error {
 	return nil
 }
 
-func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
+func (c *HTBCtx) AddTargetsToPriority(target []netip.Prefix, priority Priority) (err error) {
 	if c.NFTFilter == nil {
 		return fmt.Errorf(" HTB filter uninitialised")
 	}
@@ -97,7 +97,7 @@ func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
 	return nil
 }
 
-func (c *HTBCtx) DelRule(target []netip.Prefix, priority Priority) (err error) {
+func (c *HTBCtx) RemoveTargetsFromPriority(target []netip.Prefix, priority Priority) (err error) {
 	if c.NFTFilter == nil {
 		return fmt.Errorf(" HTB filter uninitialised")
 	}

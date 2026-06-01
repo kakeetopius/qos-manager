@@ -12,6 +12,7 @@ import (
 	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/rules"
+	"github.com/kakeetopius/qosm/internal/tc"
 )
 
 type Interface struct {
@@ -77,20 +78,15 @@ func (app *ServerCtx) InitTcState() error {
 	if err != nil {
 		return err
 	}
-
-	for _, iface := range allIfaces {
-		if iface.Enabled {
-			htbErr := htbCtx.InitHTBIface(iface.Name)
-			if htbErr != nil {
-				return htbErr
-			}
-		}
-	}
-
 	app.HTBCtx = htbCtx
 	app.Ifaces = allIfaces
 
 	err = rules.InitSavedRules(app.DB, app.HTBCtx, app.Logger)
+	if err != nil {
+		return err
+	}
+
+	err = tc.InitSavedInterfaceSettings(app.DB, htbCtx)
 	if err != nil {
 		return err
 	}

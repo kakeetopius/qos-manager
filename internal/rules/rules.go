@@ -46,7 +46,7 @@ func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority st
 	util.Debug(logger, "resolving_domain", "domain_name", domain)
 	ips, err := net.LookupIP(domain)
 	if err != nil {
-		util.Error(logger, "resolve_error", "domain_name", domain, "error", err.Error())
+		util.Debug(logger, "resolve_error", "domain_name", domain, "error", err.Error())
 		return Rule{}, err
 	}
 
@@ -330,14 +330,12 @@ func deleteDomainRulesFromNft(domainRule db.DomainRule, htbCtx *htb.HTBCtx) erro
 		addrs = append(addrs, ip)
 	}
 
-	switch domainRule.Priority {
-	case "high":
-		return htbCtx.NFTFilter.DeleteTargetFromHighPriority(addrs)
-	case "low":
-		return htbCtx.NFTFilter.DeleteTargetFromLowPriority(addrs)
-	default:
-		return fmt.Errorf("unknown priority: %v", domainRule.Priority)
+	priority, err := htb.PriorityFromString(domainRule.Priority)
+	if err != nil {
+		return err
 	}
+
+	return htbCtx.RemoveTargetsFromPriority(addrs, priority)
 }
 
 func deleteIPRuleFromNft(htbCtx *htb.HTBCtx, ipRule db.IPRule) error {
@@ -349,30 +347,21 @@ func deleteIPRuleFromNft(htbCtx *htb.HTBCtx, ipRule db.IPRule) error {
 		return err
 	}
 
-	switch ipRule.Priority {
-	case "high":
-		return htbCtx.NFTFilter.DeleteTargetFromHighPriority([]netip.Prefix{addr})
-	case "low":
-		return htbCtx.NFTFilter.DeleteTargetFromLowPriority([]netip.Prefix{addr})
-	default:
-		return fmt.Errorf("unknown priority: %v", ipRule.Priority)
+	priority, err := htb.PriorityFromString(ipRule.Priority)
+	if err != nil {
+		return err
 	}
+	return htbCtx.RemoveTargetsFromPriority([]netip.Prefix{addr}, priority)
 }
 
 func addDomainRuleToNft(domainIPs []netip.Prefix, priority string, htbCtx *htb.HTBCtx, logger *slog.Logger) error {
-	var prio htb.Priority
-	switch priority {
-	case "high":
-		prio = htb.PRIORITYHIGH
-	case "low":
-		prio = htb.PRIORITYLOW
-	default:
-		return fmt.Errorf("unknown priority: %s", priority)
-	}
-
-	err := htbCtx.AddRule(domainIPs, prio)
+	prio, err := htb.PriorityFromString(priority)
 	if err != nil {
-		util.Error(logger, "tc_error", "error", err.Error())
+		return err
+	}
+	err = htbCtx.AddTargetsToPriority(domainIPs, prio)
+	if err != nil {
+		util.Debug(logger, "tc_error", "error", err.Error())
 		return err
 	}
 
@@ -380,19 +369,14 @@ func addDomainRuleToNft(domainIPs []netip.Prefix, priority string, htbCtx *htb.H
 }
 
 func addIPRuleToNft(ip netip.Prefix, priority string, htbCtx *htb.HTBCtx, logger *slog.Logger) error {
-	var prio htb.Priority
-	switch priority {
-	case "high":
-		prio = htb.PRIORITYHIGH
-	case "low":
-		prio = htb.PRIORITYLOW
-	default:
-		return fmt.Errorf("unknown priority: %s", priority)
+	prio, err := htb.PriorityFromString(priority)
+	if err != nil {
+		return err
 	}
 
-	err := htbCtx.AddRule([]netip.Prefix{ip}, prio)
+	err = htbCtx.AddTargetsToPriority([]netip.Prefix{ip}, prio)
 	if err != nil {
-		util.Error(logger, "tc_error", "error", err.Error())
+		util.Debug(logger, "tc_error", "error", err.Error())
 		return err
 	}
 

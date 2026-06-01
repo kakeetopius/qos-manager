@@ -16,14 +16,14 @@ func (app *ServerCtx) PostSystemSettings(c *gin.Context) {
 	var maxBandwidth int
 	fmt.Sscanf(c.PostForm("max_bandwidth"), "%d", &maxBandwidth)
 
-	err := db.UpdateSettingField(app.DB, "logging_level", loggingLevel)
+	err := db.UpdateSettingsField(app.DB, "logging_level", loggingLevel)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	app.Settings.LoggingLevel = loggingLevel
 
-	err = db.UpdateSettingField(app.DB, "max_bandwidth", maxBandwidth)
+	err = db.UpdateSettingsField(app.DB, "max_bandwidth", maxBandwidth)
 	if err != nil {
 		c.Error(err)
 		return
@@ -57,7 +57,7 @@ func (app *ServerCtx) PostDNSSettings(c *gin.Context) {
 	primaryDNS := c.PostForm("primary_dns")
 	dnsOverride := c.PostForm("dns_override") == "on"
 
-	err := db.UpdateSettingField(app.DB, "dns_override", dnsOverride)
+	err := db.UpdateSettingsField(app.DB, "dns_override", dnsOverride)
 	if err != nil {
 		c.Error(err)
 		return
@@ -71,7 +71,7 @@ func (app *ServerCtx) PostDNSSettings(c *gin.Context) {
 		return
 	}
 
-	err = db.UpdateSettingField(app.DB, "primary_dns", primaryDNS)
+	err = db.UpdateSettingsField(app.DB, "primary_dns", primaryDNS)
 	if err != nil {
 		c.Error(err)
 		return
@@ -85,7 +85,7 @@ func (app *ServerCtx) PostSecuritySettings(c *gin.Context) {
 	var sessionTimeout int
 
 	fmt.Sscanf(c.PostForm("session_timeout"), "%d", &sessionTimeout)
-	err := db.UpdateSettingField(app.DB, "session_timeout", sessionTimeout)
+	err := db.UpdateSettingsField(app.DB, "session_timeout", sessionTimeout)
 	if err != nil {
 		c.Error(err)
 		return
