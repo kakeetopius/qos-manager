@@ -25,6 +25,7 @@ func IfaceCmd() *cobra.Command {
 		IfaceEnableCmd(),
 		IfaceDisableCmd(),
 		IfaceStats(),
+		IfaceListCmd(),
 	)
 	return &ifaceCmd
 }
@@ -66,7 +67,7 @@ func IfaceEnableCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
-				fmt.Printf("Successfully enabled HTB qdisc on interfaces: %v\n", iface)
+				fmt.Printf("Successfully enabled HTB qdisc on interface: %v\n", iface)
 			}
 
 			return nil
@@ -175,4 +176,36 @@ func IfaceStats() *cobra.Command {
 	}
 
 	return &ifaceAddCmd
+}
+
+func IfaceListCmd() *cobra.Command {
+	ifacelistCmd := cobra.Command{
+		Use:     "list",
+		Short:   "List htb enabled interfaces.",
+		Aliases: []string{"l"},
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dbCon, err := db.NewConn()
+			if err != nil {
+				return err
+			}
+			enabledIfaces, err := db.GetEnabledInterfaces(dbCon)
+			if err != nil {
+				return err
+			}
+			if len(enabledIfaces) == 0 {
+				fmt.Println("No htb enabled interfaces.")
+				return nil
+			}
+
+			fmt.Println("Enabled Interfaces: ")
+			for _, iface := range enabledIfaces {
+				fmt.Println(iface.Name)
+			}
+
+			return nil
+		},
+	}
+
+	return &ifacelistCmd
 }
