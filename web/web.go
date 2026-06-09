@@ -23,7 +23,7 @@ type ServerOptions struct {
 	Addr            string
 	DBPath          string
 	SessionsEncKey  string
-	SessionsHashKey string
+	SessionsAuthKey string
 	Debug           bool
 }
 
@@ -62,7 +62,10 @@ func Run(opts ServerOptions) error {
 		return err
 	}
 
-	app.SetUpSessionMiddleWare(router)
+	err = app.SetUpSessionMiddleWare(router, opts.SessionsAuthKey, opts.SessionsEncKey)
+	if err != nil {
+		return err
+	}
 	app.AddRoutes(router)
 	app.AddStaticRoutes(router, &staticFS)
 

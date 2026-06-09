@@ -168,7 +168,7 @@ func addNewQosmChain(conn *nftables.Conn, table *nftables.Table, chainName strin
 	}, nil
 }
 
-func lookupQosmRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets qosmSets, oifIndex int, opts *NFTOpts) (qosmRules, error) {
+func lookupQosmIPRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets qosmSets, oifIndex int, opts *NFTOpts) (qosmRules, error) {
 	util.Debug(opts.Logger, "nft: lookup of qosm rules", "chain", chain.Name, "ofindex", oifIndex)
 
 	rules, err := conn.GetRules(table, chain)
@@ -195,7 +195,7 @@ func lookupQosmRules(conn *nftables.Conn, table *nftables.Table, chain *nftables
 
 	if highPrioRule == nil {
 		if opts.CreateIfNotExists {
-			highPrioRule, err = addMarkingRule(conn, ruleParams{
+			highPrioRule, err = addIPRule(conn, ruleParams{
 				table:       table,
 				chain:       chain,
 				ipSet:       ipSets.highPrioSet,
@@ -213,7 +213,7 @@ func lookupQosmRules(conn *nftables.Conn, table *nftables.Table, chain *nftables
 
 	if lowPrioRule == nil {
 		if opts.CreateIfNotExists {
-			lowPrioRule, err = addMarkingRule(conn, ruleParams{
+			lowPrioRule, err = addIPRule(conn, ruleParams{
 				table:       table,
 				chain:       chain,
 				ipSet:       ipSets.lowPrioSet,
@@ -235,7 +235,7 @@ func lookupQosmRules(conn *nftables.Conn, table *nftables.Table, chain *nftables
 	}, nil
 }
 
-func addMarkingRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nftables.Rule, error) {
+func addIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nftables.Rule, error) {
 	util.Debug(logger, "nft: creating rule", "chain", params.chain.Name, "rule", params.ruleName, "mark", params.mark, "oifaceIndex", params.oifaceIndex)
 	byteMark := make([]byte, 4)
 	binary.NativeEndian.PutUint32(byteMark, uint32(params.mark))

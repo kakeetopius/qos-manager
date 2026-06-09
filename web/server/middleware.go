@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"crypto/hkdf"
+	"crypto/sha256"
 	"errors"
 	"net/http"
 
@@ -87,8 +89,24 @@ func AuthRequired(app *ServerCtx) gin.HandlerFunc {
 	}
 }
 
-func (app *ServerCtx) SetUpSessionMiddleWare(router *gin.Engine) {
-	store := cookie.NewStore([]byte("cookie-key"))
+func (app *ServerCtx) SetUpSessionMiddleWare(router *gin.Engine, authKey string, encKey string) error {
+	derivedAuthKey, err := genKey(authKey, 64)
+	if err != nil {
+		return err
+	}
+	derivedEncKey, err := genKey(encKey, 32)
+	if err != nil {
+		return err
+	}
+	store := cookie.NewStore(derivedAuthKey, derivedEncKey)
 
 	router.Use(sessions.Sessions("qosm-session", store))
+
+	return nil
+}
+
+func genKey(secret string, keyLen int) ([]byte, error) {
+	hash := sha256.New
+
+	return hkdf.Key(hash, []byte(secret), nil, "", keyLen)
 }

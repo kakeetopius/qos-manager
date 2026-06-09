@@ -30,10 +30,12 @@ func runWeb() *cobra.Command {
 		Short: "Run the web server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return web.Run(web.ServerOptions{
-				Addr:   appConfig.GetString("server.address"),
-				Port:   appConfig.GetInt("server.port"),
-				DBPath: appConfig.GetString("db.path"),
-				Debug:  debug,
+				Addr:            appConfig.GetString("server.address"),
+				Port:            appConfig.GetInt("server.port"),
+				DBPath:          appConfig.GetString("db.path"),
+				SessionsAuthKey: appConfig.GetString("server.sessions.auth_key"),
+				SessionsEncKey:  appConfig.GetString("server.sessions.enc_key"),
+				Debug:           debug,
 			})
 		},
 	}

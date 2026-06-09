@@ -46,7 +46,7 @@ func (c *NFTCtx) NetworkIsLowPriority(network netip.Prefix) (bool, error) {
 
 func (c *NFTCtx) AddIfaceRules(ifIndex int) error {
 	if c.Table == nil {
-		return fmt.Errorf(" qosm nft table not yet initialised")
+		return fmt.Errorf("qosm nft table not yet initialised")
 	}
 
 	nftOpts := NFTOpts{
@@ -55,13 +55,13 @@ func (c *NFTCtx) AddIfaceRules(ifIndex int) error {
 	}
 
 	// get rules in output chain for given interface
-	outputRules, err := lookupQosmRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
+	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
 	if err != nil {
 		return err
 	}
 
 	// get rules in forward chain for given interface
-	forwardRules, err := lookupQosmRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
+	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (c *NFTCtx) DeleteIfaceRules(ifIndex int) error {
 
 	// get rules in output chain for given interface
 	var errRuleNotFound ErrRuleNotFound
-	outputRules, err := lookupQosmRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
+	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
 	if err != nil {
 		if errors.As(err, &errRuleNotFound) {
 			return nil
@@ -107,7 +107,7 @@ func (c *NFTCtx) DeleteIfaceRules(ifIndex int) error {
 	c.conn.DelRule(outputRules.lowPrioRule)
 
 	// get rules in forward chain for given interface
-	forwardRules, err := lookupQosmRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
+	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
 	if err != nil {
 		if errors.As(err, &errRuleNotFound) {
 			return nil
@@ -132,7 +132,7 @@ func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 	}
 
 	// rules from output chain
-	outputRules, err := lookupQosmRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifindex, &nftOpts)
+	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifindex, &nftOpts)
 	if err != nil {
 		return InterfaceStats{}, err
 	}
@@ -140,7 +140,7 @@ func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 	outputStatsLow := getRuleStats(outputRules.lowPrioRule)
 
 	// rules from forward chain
-	forwardRules, err := lookupQosmRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifindex, &nftOpts)
+	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifindex, &nftOpts)
 	if err != nil {
 		return InterfaceStats{}, err
 	}
