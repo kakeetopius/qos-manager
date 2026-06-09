@@ -10,11 +10,19 @@ import (
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
-func EnableTcOnInterface(iface net.Interface, htbCtx *htb.HTBCtx, dbConn *sql.DB) error {
+func EnableTcOnInterface(iface net.Interface, htbCtx *htb.HTBCtx, dbConn *sql.DB) (err error) {
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addSuccessLog(dbConn, iface.Name)
+		}
+	}()
+
 	if htbCtx == nil {
 		return fmt.Errorf("htb context not intialised")
 	}
-	err := htbCtx.InitHTBIface(iface.Name)
+	err = htbCtx.InitHTBIface(iface.Name)
 	if err != nil {
 		return err
 	}
@@ -40,11 +48,19 @@ func EnableTcOnInterface(iface net.Interface, htbCtx *htb.HTBCtx, dbConn *sql.DB
 	return nil
 }
 
-func DisableTcOnInterface(iface net.Interface, htbCtx *htb.HTBCtx, dbConn *sql.DB) error {
+func DisableTcOnInterface(iface net.Interface, htbCtx *htb.HTBCtx, dbConn *sql.DB) (err error) {
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addDeleteLog(dbConn, iface.Name)
+		}
+	}()
+
 	if htbCtx == nil {
 		return fmt.Errorf("htb context not intialised")
 	}
-	err := htbCtx.FlushQdisc(iface.Index)
+	err = htbCtx.FlushQdisc(iface.Index)
 	if err != nil {
 		return err
 	}
@@ -88,4 +104,24 @@ func InitSavedInterfaceSettings(dbConn *sql.DB, htbCtx *htb.HTBCtx) error {
 	}
 
 	return nil
+}
+
+func addSuccessLog(dbCon *sql.DB, iface string) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType:   "TC",
+			Description: fmt.Sprintf("enabled traffic control on interface %s", iface),
+		},
+	)
+}
+
+func addDeleteLog(dbCon *sql.DB, iface string) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType:   "TC",
+			Description: fmt.Sprintf("disabled traffic control on interface %s", iface),
+		},
+	)
 }

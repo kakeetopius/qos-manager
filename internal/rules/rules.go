@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/kakeetopius/qosm/internal/core/htb"
@@ -24,12 +25,19 @@ type Rule struct {
 	CreatedAt time.Time
 }
 
-func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority string, logger *slog.Logger) (Rule, error) {
+func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority string, logger *slog.Logger) (rule Rule, err error) {
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbCon, err, "")
+		} else {
+			addRuleSuccessLog(dbCon, domain, priority)
+		}
+	}()
+
 	if htbCtx == nil {
 		return Rule{}, fmt.Errorf("htb context not intialised")
 	}
-	rule := Rule{}
-	var err error
+
 	exists, err := db.CheckDomainRuleExists(dbCon, domain)
 	if err != nil {
 		return rule, err
@@ -49,6 +57,10 @@ func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority st
 		util.Debug(logger, "resolve_error", "domain_name", domain, "error", err.Error())
 		return Rule{}, err
 	}
+	db.AddLog(dbCon, db.Log{
+		EventType:   "DNS",
+		Description: "Resolved domain " + domain + " to " + ipSliceToString(ips),
+	})
 
 	addrs := util.NetIPtoNetIPPRefix(ips)
 
@@ -77,11 +89,18 @@ func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority st
 	}, nil
 }
 
-func AddIPRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, ip string, priority string, logger *slog.Logger) (Rule, error) {
+func AddIPRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, ip string, priority string, logger *slog.Logger) (rule Rule, err error) {
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbCon, err, "")
+		} else {
+			addRuleSuccessLog(dbCon, ip, priority)
+		}
+	}()
+
 	if htbCtx == nil {
 		return Rule{}, fmt.Errorf("htb context not intialised")
 	}
-	rule := Rule{}
 	addrs, err := util.TargetsFromString(ip)
 	if err != nil {
 		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
@@ -158,7 +177,7 @@ func InitSavedRules(dbCon *sql.DB, htbCtx *htb.HTBCtx, logger *slog.Logger) erro
 	return nil
 }
 
-func DeleteDomainRuleByID(dbConn *sql.DB, htbCtx *htb.HTBCtx, domainRuleID int) error {
+func DeleteDomainRuleByID(dbConn *sql.DB, htbCtx *htb.HTBCtx, domainRuleID int) (err error) {
 	domainRule, err := db.GetDomainRuleByID(dbConn, domainRuleID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -166,6 +185,14 @@ func DeleteDomainRuleByID(dbConn *sql.DB, htbCtx *htb.HTBCtx, domainRuleID int) 
 		}
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addRuleDeleteLog(dbConn, domainRule.DomainName, domainRule.Priority)
+		}
+	}()
 
 	err = db.DeleteDomainRuleByID(dbConn, domainRuleID, domainRule.Priority)
 	if err != nil {
@@ -184,6 +211,14 @@ func DeleteDomainRuleByName(dbConn *sql.DB, htbCtx *htb.HTBCtx, name string) err
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addRuleDeleteLog(dbConn, domainRule.DomainName, domainRule.Priority)
+		}
+	}()
+
 	err = db.DeleteDomainRuleByName(dbConn, name, domainRule.Priority)
 	if err != nil {
 		return err
@@ -201,6 +236,14 @@ func DeleteIPRuleByID(dbConn *sql.DB, htbCtx *htb.HTBCtx, ipRuleID int) error {
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addRuleDeleteLog(dbConn, ipRule.IP, ipRule.Priority)
+		}
+	}()
+
 	err = db.DeleteIPRuleByID(dbConn, ipRuleID, ipRule.Priority)
 	if err != nil {
 		return err
@@ -217,6 +260,14 @@ func DeleteIPRuleByName(dbConn *sql.DB, htbCtx *htb.HTBCtx, ipRuleName string) e
 		}
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(dbConn, err, "")
+		} else {
+			addRuleDeleteLog(dbConn, ipRule.IP, ipRule.Priority)
+		}
+	}()
 
 	err = db.DeleteIPRuleByName(dbConn, ipRuleName, ipRule.Priority)
 	if err != nil {
@@ -381,4 +432,40 @@ func addIPRuleToNft(ip netip.Prefix, priority string, htbCtx *htb.HTBCtx, logger
 	}
 
 	return nil
+}
+
+func addRuleSuccessLog(dbCon *sql.DB, target string, priority string) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType:   "RULE",
+			Description: fmt.Sprintf("added %s to %s priority", target, strings.ToUpper(priority)),
+		},
+	)
+}
+
+func addRuleDeleteLog(dbCon *sql.DB, target string, priority string) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType:   "RULE",
+			Description: fmt.Sprintf("deleted %s prioriy rule to %s", strings.ToUpper(priority), target),
+		},
+	)
+}
+
+func ipSliceToString(ips []net.IP) string {
+	if len(ips) == 0 {
+		return ""
+	}
+
+	stringBuilder := strings.Builder{}
+	for i, ip := range ips {
+		stringBuilder.WriteString(ip.String())
+		if i != len(ips)-1 {
+			stringBuilder.WriteString(", ")
+		}
+	}
+
+	return stringBuilder.String()
 }

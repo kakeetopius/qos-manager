@@ -1,0 +1,28 @@
+{{ define "logs_view.tmpl" }}
+
+{{ range .Logs }}
+
+{{ $eventClass := "text-blue-400" }}
+
+{{ if .EventType | eq "ERROR" }}
+{{ $eventClass = "text-red-400" }}
+
+{{ else if .EventType | eq "RULE" }}
+{{ $eventClass = "text-green-400" }}
+
+{{ else if .EventType | eq "WARN" }}
+{{ $eventClass = "text-yellow-400" }}
+
+{{ else if .EventType | eq "DNS" }}
+{{ $eventClass = "text-purple-400" }}
+{{ end }}
+
+<div class="flex gap-3">
+	<span class="{{$eventClass}}">[{{- .EventType }}]</span>
+	<span class="text-zinc-400">{{ .TimeStamp }}</span>
+	<span>{{ .Description }}</span>
+</div>
+{{ end }}
+
+
+{{ end }}

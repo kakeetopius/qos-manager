@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/pam"
+	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/rules"
 )
 
@@ -16,10 +18,14 @@ func (app *ServerCtx) LoginPost(ctx *gin.Context) {
 	username := ctx.PostForm("username")
 	password := ctx.PostForm("password")
 
-	app.Logger.Info("login attempt", "username", username)
+	db.AddLog(app.DB, db.Log{
+		EventType:   "INFO",
+		Description: "login attempt for " + username,
+	})
 
 	if err := pam.AuthenticateUser(username, password); err != nil {
-		app.Logger.Error("auth_failed", "username", username, "err", err)
+		db.AddErrorLog(app.DB, err, "")
+
 		ctx.Error(ServerError{
 			StatusCode: http.StatusOK,
 			Err:        fmt.Errorf(" Invalid username or password"),
@@ -28,7 +34,10 @@ func (app *ServerCtx) LoginPost(ctx *gin.Context) {
 		return
 	}
 
-	app.Logger.Info("auth_successful", "username", username)
+	db.AddLog(app.DB, db.Log{
+		EventType:   "INFO",
+		Description: "login successfull for " + username,
+	})
 	session := sessions.Default(ctx)
 	session.Options(sessions.Options{
 		MaxAge:   app.Settings.SessionTimeout * 60,
@@ -106,11 +115,41 @@ func (app *ServerCtx) AnalyticsPage(c *gin.Context) {
 
 func (app *ServerCtx) LogsPage(c *gin.Context) {
 	session := sessions.Default(c)
+	logs, stats, err := db.GetLogsWithStats(app.DB)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	c.HTML(http.StatusOK, "logs", gin.H{
 		"Heading":     "Logs",
 		"Description": "Real-time QoS engine and network activity logs",
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
+		"Logs":        logs,
+		"Stats":       stats,
+	})
+}
+
+func (app *ServerCtx) LogsFilter(c *gin.Context) {
+	filter := c.Query("event_filter")
+	if filter == "" {
+		filter = "all"
+	}
+	var logs []db.Log
+	var err error
+	if filter == "all" {
+		logs, err = db.GetLogs(app.DB)
+	} else {
+		logs, err = db.GetLogsOfEvent(app.DB, strings.ToUpper(filter))
+	}
+
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.HTML(http.StatusOK, "logs_view", gin.H{
+		"Logs": logs,
 	})
 }
 
@@ -128,9 +167,14 @@ func (app *ServerCtx) SettingsPage(c *gin.Context) {
 
 func (app *ServerCtx) Logout(c *gin.Context) {
 	session := sessions.Default(c)
+	username := session.Get("username").(string)
 
 	session.Clear()
 	session.Save()
 
+	db.AddLog(app.DB, db.Log{
+		EventType:   "INFO",
+		Description: "logout for user " + username,
+	})
 	c.Redirect(http.StatusFound, "/login")
 }

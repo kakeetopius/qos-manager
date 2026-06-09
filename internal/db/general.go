@@ -58,6 +58,14 @@ func SetUp(db *sql.DB) error {
 		name TEXT NOT NULL UNIQUE,
 		enabled BOOLEAN NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_type TEXT NOT NULL,
+		user_name TEXT NOT NULL,
+		description TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
     `
 
 	_, err := db.Exec(schema)

@@ -4,6 +4,7 @@ package web
 import (
 	"embed"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -74,6 +75,12 @@ func Run(opts ServerOptions) error {
 }
 
 func createRenderer() (multitemplate.Renderer, error) {
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int {
+			return a + b
+		},
+	}
+
 	tmplSubFS, err := fs.Sub(staticFS, "static/templates")
 	if err != nil {
 		return nil, err
@@ -86,14 +93,18 @@ func createRenderer() (multitemplate.Renderer, error) {
 
 	for _, page := range pages {
 		files := append([]string{"layout/base.tmpl", "pages/" + page + ".tmpl"}, commonTemplates...)
-		r.AddFromFS(page, tmplSubFS, files...)
+		if page == "logs" {
+			files = append(files, "partials/logs_view.tmpl")
+		}
+		r.AddFromFSFuncs(page, funcMap, tmplSubFS, files...)
 	}
 
-	r.AddFromFS("login", tmplSubFS, "pages/login.tmpl", "partials/meta.tmpl", "partials/fail.tmpl")
-	r.AddFromFS("fail", tmplSubFS, "partials/fail.tmpl")
-	r.AddFromFS("toast_success", tmplSubFS, "partials/toast_success.tmpl")
-	r.AddFromFS("toast_error", tmplSubFS, "partials/toast_error.tmpl")
-	r.AddFromFS("rule_table_row", tmplSubFS, "partials/rule_table_row.tmpl")
+	r.AddFromFSFuncs("login", funcMap, tmplSubFS, "pages/login.tmpl", "partials/meta.tmpl", "partials/fail.tmpl")
+	r.AddFromFSFuncs("fail", funcMap, tmplSubFS, "partials/fail.tmpl")
+	r.AddFromFSFuncs("toast_success", funcMap, tmplSubFS, "partials/toast_success.tmpl")
+	r.AddFromFSFuncs("toast_error", funcMap, tmplSubFS, "partials/toast_error.tmpl")
+	r.AddFromFSFuncs("rule_table_row", funcMap, tmplSubFS, "partials/rule_table_row.tmpl")
+	r.AddFromFSFuncs("logs_view", funcMap, tmplSubFS, "partials/logs_view.tmpl")
 	return r, nil
 }
 
