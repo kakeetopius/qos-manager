@@ -7,44 +7,44 @@ import (
 )
 
 // AddTargetsToHighPriority ip addresses to the high-priority IP set.
-func (c *NFTCtx) AddTargetsToHighPriority(targets []netip.Prefix) error {
+func (c *NFT) AddTargetsToHighPriority(targets []netip.Prefix) error {
 	return addIPsToIPSet(c.conn, c.highPrioSet, targets)
 }
 
 // AddTargetsToLowPriority adds ip addresses to the low-priority IP set.
-func (c *NFTCtx) AddTargetsToLowPriority(targets []netip.Prefix) error {
+func (c *NFT) AddTargetsToLowPriority(targets []netip.Prefix) error {
 	return addIPsToIPSet(c.conn, c.lowPrioSet, targets)
 }
 
 // DeleteTargetFromHighPriority removes the given ip addresses from the high-priority IP set.
-func (c *NFTCtx) DeleteTargetFromHighPriority(targets []netip.Prefix) error {
+func (c *NFT) DeleteTargetFromHighPriority(targets []netip.Prefix) error {
 	return deleteIPsFromIPSet(c.conn, c.highPrioSet, targets)
 }
 
 // DeleteTargetFromLowPriority removes the given ip addresses from the low-priority IP set.
-func (c *NFTCtx) DeleteTargetFromLowPriority(targets []netip.Prefix) error {
+func (c *NFT) DeleteTargetFromLowPriority(targets []netip.Prefix) error {
 	return deleteIPsFromIPSet(c.conn, c.lowPrioSet, targets)
 }
 
 // GetHighPrioIPs returns all IP addresses in the high-priority set.
-func (c *NFTCtx) GetHighPrioIPs() ([]netip.Prefix, error) {
+func (c *NFT) GetHighPrioIPs() ([]netip.Prefix, error) {
 	return getIPSetElements(c.conn, c.highPrioSet)
 }
 
 // GetLowPrioIPs returns all IP addresses in the low-priority set.
-func (c *NFTCtx) GetLowPrioIPs() ([]netip.Prefix, error) {
+func (c *NFT) GetLowPrioIPs() ([]netip.Prefix, error) {
 	return getIPSetElements(c.conn, c.lowPrioSet)
 }
 
-func (c *NFTCtx) NetworkIsHighPriority(network netip.Prefix) (bool, error) {
+func (c *NFT) NetworkIsHighPriority(network netip.Prefix) (bool, error) {
 	return networkExistsInIPSet(c.conn, c.highPrioSet, network)
 }
 
-func (c *NFTCtx) NetworkIsLowPriority(network netip.Prefix) (bool, error) {
+func (c *NFT) NetworkIsLowPriority(network netip.Prefix) (bool, error) {
 	return networkExistsInIPSet(c.conn, c.lowPrioSet, network)
 }
 
-func (c *NFTCtx) AddIfaceRules(ifIndex int) error {
+func (c *NFT) AddIfaceRules(ifIndex int) error {
 	if c.Table == nil {
 		return fmt.Errorf("qosm nft table not yet initialised")
 	}
@@ -80,7 +80,7 @@ func (c *NFTCtx) AddIfaceRules(ifIndex int) error {
 	return nil
 }
 
-func (c *NFTCtx) DeleteIfaceRules(ifIndex int) error {
+func (c *NFT) DeleteIfaceRules(ifIndex int) error {
 	if c.Table == nil {
 		return fmt.Errorf(" qosm nft table not yet initialised")
 	}
@@ -125,7 +125,7 @@ func (c *NFTCtx) DeleteIfaceRules(ifIndex int) error {
 	return nil
 }
 
-func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
+func (c *NFT) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 	nftOpts := NFTOpts{
 		CreateIfNotExists: false,
 		Logger:            c.Logger,
@@ -162,7 +162,7 @@ func (c *NFTCtx) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
 }
 
 // DeleteTable removes the qosm nftables table from the system. The context becomes invalid after this operation.
-func (c *NFTCtx) DeleteTable() error {
+func (c *NFT) DeleteTable() error {
 	fmt.Println("Deleting table")
 	c.conn.DelTable(c.Table)
 	err := c.conn.Flush()

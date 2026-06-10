@@ -16,30 +16,30 @@ import (
 	"github.com/kakeetopius/qosm/internal/util"
 )
 
-func NewNFTCtx(opts NFTOpts) (NFTCtx, error) {
+func NewNFTCtx(opts NFTOpts) (NFT, error) {
 	conn, err := nftables.New()
 	if err != nil {
-		return NFTCtx{}, err
+		return NFT{}, err
 	}
 
 	table, err := lookupQosmTable(conn, &opts)
 	if err != nil {
-		return NFTCtx{}, err
+		return NFT{}, err
 	}
 
 	outputChain, err := lookupQosmChain(conn, table, OUTPUTCHAINNAME, nftables.ChainHookOutput, &opts)
 	if err != nil {
-		return NFTCtx{}, err
+		return NFT{}, err
 	}
 
 	forwardChain, err := lookupQosmChain(conn, table, FORWARDCHAINNAME, nftables.ChainHookForward, &opts)
 	if err != nil {
-		return NFTCtx{}, err
+		return NFT{}, err
 	}
 
 	ipSets, err := lookupQosmIPSets(conn, table, &opts)
 	if err != nil {
-		return NFTCtx{}, err
+		return NFT{}, err
 	}
 
 	chains := qosmChains{
@@ -47,7 +47,7 @@ func NewNFTCtx(opts NFTOpts) (NFTCtx, error) {
 		forwardChain: forwardChain,
 	}
 
-	return NFTCtx{
+	return NFT{
 		Logger: opts.Logger,
 		conn:   conn,
 		qosmTable: qosmTable{

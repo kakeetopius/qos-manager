@@ -1,5 +1,4 @@
-// Package tc is used to manage traffic control settings, statistics etc of an interface.
-package tc
+package qos
 
 import (
 	"database/sql"

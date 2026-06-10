@@ -38,7 +38,7 @@ var (
 type HTBCtx struct {
 	Conn      *tc.Tc
 	HTBIfaces map[int]HTBIface
-	NFTFilter *nft.NFTCtx
+	NFTFilter *nft.NFT
 
 	Logger *slog.Logger
 }

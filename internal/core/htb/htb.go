@@ -25,7 +25,7 @@ func NewHTBCtx() (*HTBCtx, error) {
 	return &htbCtx, nil
 }
 
-func (c *HTBCtx) InitHTBIface(ifaces ...string) error {
+func (c *HTBCtx) InitHTBOnIface(ifaces ...string) error {
 	if len(ifaces) == 0 {
 		return fmt.Errorf("no interface given")
 	}

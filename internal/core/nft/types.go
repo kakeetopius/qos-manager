@@ -14,8 +14,8 @@ type NFTOpts struct {
 
 type IfaceIndex int
 
-// NFTCtx holds the nftables connection and all QOSM table structures.
-type NFTCtx struct {
+// NFT holds the nftables connection and all QOSM table structures.
+type NFT struct {
 	conn *nftables.Conn
 	qosmTable
 
