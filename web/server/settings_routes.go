@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"slices"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
@@ -33,26 +32,45 @@ func (app *Server) PostSystemSettings(c *gin.Context) {
 	SendSuccessMessage(c)
 }
 
-func (app *Server) PostInterfaceSettings(c *gin.Context) {
-	ifaceNames := c.PostFormArray("interfaces")
+func (app *Server) GetInterfaceSettingsPopUp(c *gin.Context) {
+	ifaceName := c.Param("ifaceName")
 
-	var err error
-	ifaces := app.QoSManager.Ifaces
-	for _, iface := range ifaces {
-		ifaceChecked := slices.Contains(ifaceNames, iface.Name) // checkbox marked by use
-		if ifaceChecked && !iface.Enabled {
-			err = app.QoSManager.EnableTcOnInterface(iface.Name, app.DB)
-		} else if !ifaceChecked && iface.Enabled {
-			err = app.QoSManager.DisableTcOnInterface(iface.Name, app.DB)
-		}
-
-		if err != nil {
-			c.Error(err)
-			return
-		}
+	iface, found := app.QoSManager.Ifaces[ifaceName]
+	if !found {
+		c.Error(fmt.Errorf("unknown interface: %s", ifaceName))
+		return
 	}
 
-	SendSuccessMessage(c)
+	c.HTML(http.StatusOK, "interface_settings", iface)
+}
+
+func (app *Server) PostInterfaceSettings(c *gin.Context) {
+	ifaceName := c.Param("ifaceName")
+	enabled := c.PostForm("qos_enabled") != ""
+
+	var err error
+	iface, found := app.QoSManager.Ifaces[ifaceName]
+	if !found {
+		c.Error(fmt.Errorf("unknown interface: %s", ifaceName))
+		return
+	}
+
+	if enabled && !iface.QoSEnabled {
+		err = app.QoSManager.EnableTcOnInterface(iface.Name, app.DB)
+	} else if !enabled && iface.QoSEnabled {
+		err = app.QoSManager.DisableTcOnInterface(iface.Name, app.DB)
+	}
+
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	iface = app.QoSManager.Ifaces[ifaceName]
+	c.HTML(http.StatusOK, "interface_table_row", gin.H{
+		"Iface":   iface,
+		"Message": "Interface settings applied successfully",
+	})
 }
 
 func (app *Server) PostDNSSettings(c *gin.Context) {

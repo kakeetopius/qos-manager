@@ -33,62 +33,51 @@
 				</select>
 			</div>
 
-			<!-- Max Bandwidth -->
-			<div>
-				<label class="block text-sm text-zinc-300 mb-2">
-					Max Bandwidth (Mbps)
-				</label>
-
-				<input name="max_bandwidth" type="number" value="{{ .Settings.MaxBandwidth }}"
-					class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-			</div>
-
-			<div class="flex justify-end pt-2">
-				<button type="submit"
-					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
-					Save
-				</button>
-			</div>
 
 		</section>
 	</form>
 
 	<!-- ================= INTERFACE SETTINGS ================= -->
-	<form hx-post="/settings/interface/save" hx-swap="none">
-		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
+	<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
 
-			<h3 class="text-lg font-semibold">Interface Settings</h3>
-			<p class="text-sm text-zinc-400">
-				Enable/Disable QoS on interfaces
-			</p>
+		<h3 class="text-lg font-semibold">Interface Settings</h3>
 
-			<div class="space-y-4">
-				{{ range .Ifaces }}
-				<label
-					class="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 cursor-pointer hover:border-zinc-700 transition">
+		<p class="text-sm text-zinc-400">
+			Configure QoS for individual network interfaces.
+		</p>
 
-					<div>
-						<p class="font-medium">{{ .Name }}</p>
+		<div class="divide-y divide-zinc-800">
 
+			{{ range .Ifaces }}
+
+			<div class="flex items-center justify-between py-4" id="iface-{{ .Name }}">
+				<p class="font-medium text-zinc-100">
+					{{ .Name }}
+				</p>
+				<!-- Status + Action -->
+				<div class="flex items-center gap-8">
+					{{ if .QoSEnabled }}
+					<div class="flex items-center gap-2 text-sm text-green-400">
+						<span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+						<span>Enabled</span>
 					</div>
-
-					<input type="checkbox" name="interfaces" value="{{ .Name }}" class="w-5 h-5 accent-blue-600" {{ if
-						.Enabled }}checked{{ end }}>
-				</label>
-				{{ end }}
-
+					{{ else }}
+					<div class="flex items-center gap-2 text-sm text-red-400">
+						<span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+						<span>Disabled</span>
+					</div>
+					{{ end }}
+					<button class="text-sm font-medium text-blue-400 hover:text-blue-100 transition"
+						hx-get="/settings/interfaces/{{ .Name }}" hx-target="#modal" hx-swap="innerHTML">
+						Configure
+					</button>
+				</div>
 			</div>
 
-			<div class="flex justify-end pt-2">
-				<button type="submit"
-					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
-					Save
-				</button>
-			</div>
+			{{ end }}
+		</div>
 
-		</section>
-	</form>
-
+	</section>
 	<!-- ================= DNS SETTINGS ================= -->
 	<form hx-post="/settings/dns/save" hx-swap="none">
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
@@ -128,7 +117,6 @@
 		</section>
 	</form>
 
-
 	<!-- ================= SECURITY SETTINGS ================= -->
 	<form hx-post="/settings/security/save" hx-swap="none">
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
@@ -166,6 +154,9 @@
 
 		</section>
 	</form>
+
+	<!-- ================= MODAL PLACEHOLDER ================= -->
+	<div id="modal"></div>
 
 </main>
 {{ end }}

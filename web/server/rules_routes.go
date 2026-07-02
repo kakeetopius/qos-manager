@@ -40,7 +40,6 @@ func (app *Server) PostRules(c *gin.Context) {
 	}
 
 	SendNewRuleRow(c, rule)
-	SendSuccessMessage(c, "Successfully added rule.")
 }
 
 func (app *Server) DeleteRule(c *gin.Context) {
@@ -70,6 +69,7 @@ func (app *Server) DeleteRule(c *gin.Context) {
 
 func SendNewRuleRow(c *gin.Context, rule qos.Rule) {
 	c.HTML(http.StatusOK, "rule_table_row", gin.H{
-		"Rule": rule,
+		"Message": "Successfully added rule for " + rule.Target,
+		"Rule":    rule,
 	})
 }

@@ -96,6 +96,9 @@ func createRenderer() (multitemplate.Renderer, error) {
 		if page == "logs" {
 			files = append(files, "partials/logs_view.tmpl")
 		}
+		if page == "settings" {
+			files = append(files, "partials/interface_table_row.tmpl")
+		}
 		r.AddFromFSFuncs(page, funcMap, tmplSubFS, files...)
 	}
 
@@ -103,8 +106,10 @@ func createRenderer() (multitemplate.Renderer, error) {
 	r.AddFromFSFuncs("fail", funcMap, tmplSubFS, "partials/fail.tmpl")
 	r.AddFromFSFuncs("toast_success", funcMap, tmplSubFS, "partials/toast_success.tmpl")
 	r.AddFromFSFuncs("toast_error", funcMap, tmplSubFS, "partials/toast_error.tmpl")
-	r.AddFromFSFuncs("rule_table_row", funcMap, tmplSubFS, "partials/rule_table_row.tmpl")
+	r.AddFromFSFuncs("rule_table_row", funcMap, tmplSubFS, "partials/rule_table_row.tmpl", "partials/toast_success.tmpl")
 	r.AddFromFSFuncs("logs_view", funcMap, tmplSubFS, "partials/logs_view.tmpl")
+	r.AddFromFSFuncs("interface_settings", funcMap, tmplSubFS, "partials/interface_settings.tmpl")
+	r.AddFromFSFuncs("interface_table_row", funcMap, tmplSubFS, "partials/interface_table_row.tmpl", "partials/toast_success.tmpl")
 	return r, nil
 }
 

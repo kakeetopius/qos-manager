@@ -1,5 +1,5 @@
 {{ define "toast_success.tmpl" }}
-<div id="toast-container" hx-swap-oob="beforeend">
+<div id="toast-container" hx-swap-oob="innerHTML">
 
 	<div class="bg-green-600 text-white px-4 py-3 rounded shadow-lg"
 		hx-on::load="setTimeout(() => this.remove(), 3000)">

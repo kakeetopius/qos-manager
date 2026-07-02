@@ -2,18 +2,26 @@
 package qos
 
 import (
+	"errors"
 	"log/slog"
+	"math"
 	"net"
+	"os"
 
 	"github.com/florianl/go-tc"
 	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
+	"github.com/mdlayher/ethtool"
 )
 
 type Interface struct {
 	net.Interface
-	htb.HTBIface
-	Enabled bool
+	htb.HTBObjects
+	QoSEnabled  bool
+	LinkSpeed   uint32
+	ShapingRate uint32
+	// use LinkSpeed as ShapingRate
+	AutoRate bool
 }
 
 type QoSManager struct {
@@ -39,8 +47,13 @@ func NewManager() (*QoSManager, error) {
 		return nil, err
 	}
 	for _, iface := range ifaces {
+		speed, err := getInterfaceSpeed(iface.Index)
+		if err != nil {
+			return nil, err
+		}
 		qosManager.Ifaces[iface.Name] = Interface{
 			Interface: iface,
+			LinkSpeed: speed,
 		}
 	}
 
@@ -66,4 +79,26 @@ func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
 
 func (m *QoSManager) Close() {
 	m.TcConn.Close()
+}
+
+func getInterfaceSpeed(ifIndex int) (uint32, error) {
+	client, err := ethtool.New()
+	if err != nil {
+		return 0, err
+	}
+
+	linkMode, err := client.LinkMode(ethtool.Interface{Index: ifIndex})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) { // returned if the interface is not an ethernet interface.
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	speed := linkMode.SpeedMegabits
+	if speed == math.MaxUint32 { // returned if the interface has speed of -1 meaning speed is not known to kernel
+		speed = 0
+	}
+
+	return uint32(speed), nil
 }

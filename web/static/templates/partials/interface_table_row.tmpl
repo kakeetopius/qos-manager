@@ -1,0 +1,31 @@
+{{ define "interface_table_row.tmpl" }}
+
+<div id="modal" hx-swap-oob="innerHTML"></div>
+
+<div class="flex items-center justify-between py-4" id="iface-{{ .Iface.Name }}" hx-swap-oob="innerHTML">
+	<p class="font-medium text-zinc-100">
+		{{ .Iface.Name }}
+	</p>
+	<!-- Status + Action -->
+	<div class="flex items-center gap-8">
+		{{ if .Iface.QoSEnabled }}
+		<div class="flex items-center gap-2 text-sm text-green-400">
+			<span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+			<span>Enabled</span>
+		</div>
+		{{ else }}
+		<div class="flex items-center gap-2 text-sm text-red-400">
+			<span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+			<span>Disabled</span>
+		</div>
+		{{ end }}
+		<button class="text-sm font-medium text-blue-400 hover:text-blue-100 transition"
+			hx-get="/settings/interfaces/{{ .Iface.Name }}" hx-target="#modal" hx-swap="innerHTML">
+			Configure
+		</button>
+	</div>
+</div>
+
+{{ template "toast_success.tmpl" . }}
+
+{{ end }}

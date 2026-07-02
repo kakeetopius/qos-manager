@@ -171,7 +171,7 @@
 		<div class="space-y-3 text-sm">
 			{{ range .Ifaces }}
 			{{ $dotColor := "bg-red-500" }}
-			{{ if .Enabled }}
+			{{ if .QoSEnabled }}
 			{{ $dotColor = "bg-green-500" }}
 			{{ end }}
 			<div class="flex items-center justify-between py-2">
@@ -182,7 +182,7 @@
 					</span>
 				</div>
 				<span class="text-sm text-zinc-400">
-					{{ if .Enabled }}Enabled{{ else }}Disabled{{ end }}
+					{{ if .QoSEnabled }}Enabled{{ else }}Disabled{{ end }}
 				</span>
 
 			</div>

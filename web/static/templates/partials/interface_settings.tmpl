@@ -1,0 +1,134 @@
+{{ define "interface_settings.tmpl" }}
+
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+
+	<div class="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
+
+		<!-- Header -->
+		<div class="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
+			<div>
+				<h2 class="text-2xl font-semibold">
+					{{ .Name }}
+				</h2>
+				<div class="mt-2">
+					{{ if .QoSEnabled }}
+					<span class="inline-flex items-center gap-2 bg-green-950/60 text-sm text-green-300">
+						<span class="h-2 w-2 rounded-full bg-green-500"></span>
+						Enabled
+					</span>
+					{{ else }}
+					<span class="inline-flex items-center gap-2 bg-red-950/60 px-3 py-1 text-sm text-red-300">
+						<span class="h-2 w-2 rounded-full bg-red-500"></span>
+						Disabled
+					</span>
+					{{ end }}
+				</div>
+			</div>
+
+			<button class="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+				onclick="document.getElementById('modal').innerHTML=''">
+				✕
+			</button>
+		</div>
+
+		<form hx-post="/settings/interfaces/{{ .Name }}" hx-swap="none">
+			<div class="space-y-6 p-6">
+				<!-- QoS -->
+				<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+					<div class="flex items-center justify-between">
+						<div>
+							<h3 class="font-medium">
+								Quality of Service
+							</h3>
+							<p class="mt-1 text-sm text-zinc-400">
+								Enable traffic shaping using an HTB qdisc.
+							</p>
+						</div>
+						<input type="checkbox" name="qos_enabled" class="h-5 w-5 accent-blue-600" {{ if .QoSEnabled
+							}}checked{{ end }}>
+					</div>
+				</div>
+
+				<!-- Bandwidth -->
+				<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-5 space-y-5">
+					<h3 class="font-medium">
+						Bandwidth
+					</h3>
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-zinc-400">
+							Detected Link Speed
+						</span>
+						<span class="font-medium text-zinc-100">
+							{{ if gt .LinkSpeed 0 }}
+							{{ .LinkSpeed }} Mbps
+							{{ else }}
+							Unknown
+							{{ end }}
+
+						</span>
+
+					</div>
+
+					{{ if gt .LinkSpeed 0 }}
+					<label class="flex items-center gap-3">
+						<input type="checkbox" name="auto_rate" class="h-5 w-5 accent-blue-600" {{ if .AutoRate
+							}}checked{{ end }}>
+						<span>
+							Use detected link speed
+						</span>
+					</label>
+					{{ end }}
+
+					<div>
+						<label class="mb-2 block text-sm text-zinc-300">
+							Shaping Rate
+						</label>
+
+						<div class="flex items-center gap-3">
+							<input type="number" name="rate" {{ if gt .ShapingRate 0 }}value="{{ .ShapingRate }}" {{ end
+								}}
+								class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+								{{ if .AutoRate }}disabled{{ end }} {{ if and (not .QoSEnabled) (eq .LinkSpeed 0)
+								}}required{{ end }}>
+							<span class="text-zinc-400">
+								Mbps
+							</span>
+						</div>
+
+						<p class="mt-2 text-xs text-zinc-500">
+							The maximum bandwidth available to HTB on this interface.
+						</p>
+
+					</div>
+
+				</div>
+
+			</div>
+
+			<!-- Footer -->
+
+			<div class="flex justify-end gap-3 border-t border-zinc-800 px-6 py-5">
+
+				<button type="button" class="rounded-lg border border-zinc-700 px-5 py-2 hover:bg-zinc-800 transition"
+					onclick="document.getElementById('modal').innerHTML=''">
+
+					Cancel
+
+				</button>
+
+				<button type="submit"
+					class="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition hover:bg-blue-500">
+
+					Save Changes
+
+				</button>
+
+			</div>
+
+		</form>
+
+	</div>
+
+</div>
+
+{{ end }}

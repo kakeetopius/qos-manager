@@ -26,7 +26,7 @@ var (
 	HTBLOWCLASSPRIO     = 4
 )
 
-type HTBIface struct {
+type HTBObjects struct {
 	Root         *tc.Object
 	ParentClass  *tc.Object
 	HighClass    *tc.Object
@@ -35,10 +35,6 @@ type HTBIface struct {
 
 	HighClassFilter *tc.Object
 	LowClassFilter  *tc.Object
-}
-
-type HTBIfaceStats struct {
-	Index int
 }
 
 type HTBQdisc struct {

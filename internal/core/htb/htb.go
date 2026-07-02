@@ -8,16 +8,16 @@ import (
 	"github.com/florianl/go-tc"
 )
 
-func InitHTBOnIface(tcnl *tc.Tc, iface net.Interface, logger *slog.Logger) (HTBIface, error) {
-	var htbIface HTBIface
-	_, err := findRootQdisc(tcnl, iface.Index)
+func InitHTBOnIface(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
+	var htbIface HTBObjects
+	_, err := findRootQdisc(tcnl, ifIndex)
 	if err != nil {
 		if !errors.Is(err, ErrQdiscNotFound) {
 			return htbIface, err
 		}
-		htbIface, err = createQdisc(tcnl, &iface, logger)
+		htbIface, err = createQdisc(tcnl, ifIndex, logger)
 	} else {
-		htbIface, err = getQdisc(tcnl, &iface, logger)
+		htbIface, err = getQdisc(tcnl, ifIndex, logger)
 	}
 
 	if err != nil {

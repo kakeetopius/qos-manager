@@ -34,11 +34,11 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err 
 		}
 		iface.Interface = *netIface
 	}
-	if iface.Enabled {
+	if iface.QoSEnabled {
 		return nil
 	}
 
-	htbIface, err := htb.InitHTBOnIface(m.TcConn, iface.Interface, m.Logger)
+	htbIface, err := htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err 
 		return err
 	}
 
-	iface.HTBIface = htbIface
-	iface.Enabled = true
+	iface.HTBObjects = htbIface
+	iface.QoSEnabled = true
 	m.Ifaces[iface.Name] = iface
 
 	return nil
@@ -88,7 +88,7 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err
 		}
 	}
 
-	if !iface.Enabled {
+	if !iface.QoSEnabled {
 		return nil
 	}
 
@@ -109,7 +109,7 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err
 		return err
 	}
 
-	iface.Enabled = false
+	iface.QoSEnabled = false
 	m.Ifaces[ifaceName] = iface
 
 	return nil
@@ -137,7 +137,7 @@ func (m *QoSManager) InitSavedInterfaceSettings(dbConn *sql.DB) error {
 func (m *QoSManager) EnabledInterfaces() []Interface {
 	enabled := make([]Interface, 0, len(m.Ifaces))
 	for _, iface := range m.Ifaces {
-		if iface.Enabled {
+		if iface.QoSEnabled {
 			enabled = append(enabled, iface)
 		}
 	}
