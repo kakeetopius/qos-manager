@@ -12,6 +12,10 @@ import (
 var ErrNoDomainIPs = errors.New("no domain ips to refresh")
 
 func (m *QoSManager) RefreshAllDomains() error {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
+
 	domains, err := db.GetAllDomainRules(m.DB)
 	if err != nil {
 		return err
@@ -51,7 +55,12 @@ func (m *QoSManager) RefreshAllDomains() error {
 }
 
 func (m *QoSManager) clearOldIPs(domain *db.DomainRule, oldIPs []netip.Prefix) error {
-	err := m.Classifier.DeleteIPsFromPriority(oldIPs, domain.Priority)
+	var err error
+	if m.DaemonMode {
+		err = m.sendDeleteHostsRequest(oldIPs, domain.Priority)
+	} else {
+		err = m.Classifier.DeleteIPsFromPriority(oldIPs, domain.Priority)
+	}
 	if err != nil {
 		return err
 	}
@@ -65,7 +74,12 @@ func (m *QoSManager) clearOldIPs(domain *db.DomainRule, oldIPs []netip.Prefix) e
 }
 
 func (m *QoSManager) addNewIPs(domain *db.DomainRule, newIPs []netip.Prefix) error {
-	err := m.Classifier.AddIPsToPriority(newIPs, domain.Priority)
+	var err error
+	if m.DaemonMode {
+		err = m.sendAddHostsRequest(newIPs, domain.Priority)
+	} else {
+		err = m.Classifier.AddIPsToPriority(newIPs, domain.Priority)
+	}
 	if err != nil {
 		return err
 	}

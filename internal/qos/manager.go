@@ -2,7 +2,6 @@
 package qos
 
 import (
-	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -40,9 +39,8 @@ func (m *QoSManager) WithLogger(l *slog.Logger) {
 
 func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
 	if m.DaemonMode {
-		return fmt.Errorf("cannot initalise qos classifier in daemon mode")
+		return nil
 	}
-
 	nftCtx, err := nft.NewNFTCtx(nft.NFTOpts{
 		CreateIfNotExists: createIfNotExists,
 		Logger:            m.Logger,
@@ -162,6 +160,9 @@ func (m *QoSManager) DeleteAllRules() error {
 		err = m.sendFlushAllRulesRequest()
 	} else {
 		m.Classifier.FlushAllRules()
+	}
+	if err != nil {
+		return err
 	}
 
 	err = db.FlushDomainRules(m.DB)

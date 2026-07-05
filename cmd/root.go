@@ -62,6 +62,7 @@ func init() {
 		IfaceCmd(),
 		RestoreCmd(),
 		WebCmd(),
+		DaemonCmd(),
 	)
 }
 

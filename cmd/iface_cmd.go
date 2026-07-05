@@ -40,7 +40,11 @@ func IfaceEnableCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
+			qosManager, err := qos.NewManager(qos.Options{
+				DB:         dbConn,
+				DaemonMode: deamonMode,
+				DaemonSock: appConfig.GetString("daemon.sock"),
+			})
 			if err != nil {
 				return err
 			}
@@ -80,13 +84,17 @@ func IfaceDisableCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbCon, err := db.NewConn(appConfig.GetString("db.path"))
+			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
 			if err != nil {
 				return err
 			}
-			defer dbCon.Close()
+			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{DB: dbCon})
+			qosManager, err := qos.NewManager(qos.Options{
+				DB:         dbConn,
+				DaemonMode: deamonMode,
+				DaemonSock: appConfig.GetString("daemon.sock"),
+			})
 			if err != nil {
 				return err
 			}
@@ -128,13 +136,13 @@ func IfaceListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbCon, err := db.NewConn(appConfig.GetString("db.path"))
+			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
 			if err != nil {
 				return err
 			}
-			defer dbCon.Close()
+			defer dbConn.Close()
 
-			enabledIfaces, err := db.GetEnabledInterfaces(dbCon)
+			enabledIfaces, err := db.GetEnabledInterfaces(dbConn)
 			if err != nil {
 				return err
 			}

@@ -12,7 +12,7 @@ import (
 	"github.com/kakeetopius/qosm/internal/priority"
 )
 
-var ErrClassifierNotInitialised = errors.New("nft classifier not initialised. either run in daemon mode or initialise the classifier which requires root priviledges.")
+var ErrClassifierNotInitialised = errors.New("nft classifier not initialised. either run in daemon mode or initialise the classifier which requires root priviledges")
 
 type Options struct {
 	DB         *sql.DB

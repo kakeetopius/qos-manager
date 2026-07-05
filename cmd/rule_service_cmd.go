@@ -39,7 +39,11 @@ func ServiceRuleAddCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
+			qosManager, err := qos.NewManager(qos.Options{
+				DB:         dbConn,
+				DaemonMode: deamonMode,
+				DaemonSock: appConfig.GetString("daemon.sock"),
+			})
 			if err != nil {
 				return err
 			}
@@ -98,7 +102,11 @@ func ServiceRuleDeleteCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
+			qosManager, err := qos.NewManager(qos.Options{
+				DB:         dbConn,
+				DaemonMode: deamonMode,
+				DaemonSock: appConfig.GetString("daemon.sock"),
+			})
 			if err != nil {
 				return err
 			}
@@ -146,7 +154,11 @@ func ServiceRuleListCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
+			qosManager, err := qos.NewManager(qos.Options{
+				DB:         dbConn,
+				DaemonMode: deamonMode,
+				DaemonSock: appConfig.GetString("daemon.sock"),
+			})
 			if err != nil {
 				return err
 			}

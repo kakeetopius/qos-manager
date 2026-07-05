@@ -32,7 +32,7 @@ func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (ru
 	}
 
 	if m.DaemonMode {
-		err = m.sendAddServicesRequest(serv, prio)
+		err = m.sendAddServicesRequest([]service.Service{serv}, prio)
 	} else {
 		err = m.Classifier.AddServicesToPriority([]service.Service{serv}, prio)
 	}
@@ -71,7 +71,7 @@ func (m *QoSManager) DeleteServiceRuleByID(servID int) (err error) {
 	}()
 
 	if m.DaemonMode {
-		err = m.sendDeleteServiceRequest(servRule.Service, servRule.Priority)
+		err = m.sendDeleteServiceRequest([]service.Service{servRule.Service}, servRule.Priority)
 	} else {
 		err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
 	}
@@ -100,7 +100,7 @@ func (m *QoSManager) DeleteServiceRule(serv service.Service) error {
 	}()
 
 	if m.DaemonMode {
-		err = m.sendDeleteServiceRequest(serv, servRule.Priority)
+		err = m.sendDeleteServiceRequest([]service.Service{serv}, servRule.Priority)
 	} else {
 		err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
 	}
