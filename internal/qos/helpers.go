@@ -113,6 +113,9 @@ func (m *QoSManager) sendRequestToDaemon(message proto.Message) error {
 
 	conn, err := net.Dial("unix", m.DaemonSock)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to dial the daemon. Is the daemon running? If not start it with 'sudo qosm daemon run'")
+		}
 		return fmt.Errorf("failed to dial daemon: %w", err)
 	}
 	defer conn.Close()

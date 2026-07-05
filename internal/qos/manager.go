@@ -159,7 +159,7 @@ func (m *QoSManager) DeleteAllRules() error {
 	if m.DaemonMode {
 		err = m.sendFlushAllRulesRequest()
 	} else {
-		m.Classifier.FlushAllRules()
+		err = m.Classifier.FlushAllRules()
 	}
 	if err != nil {
 		return err

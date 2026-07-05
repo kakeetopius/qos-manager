@@ -325,8 +325,7 @@ func (d *Daemon) handleFlushRulesRequest(request *protobuf.Request) (err error) 
 		return nil
 	}
 
-	d.Classifier.FlushAllRules()
-	return nil
+	return d.Classifier.FlushAllRules()
 }
 
 func sendErrMsg(conn net.Conn, msg string) error {
