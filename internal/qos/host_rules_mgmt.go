@@ -98,12 +98,12 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule HostRule, err
 		return HostRule{}, err
 	}
 
-	addrs, err := util.TargetsFromString(ip)
+	addr, err := netip.ParsePrefix(ip)
 	if err != nil {
 		return HostRule{}, fmt.Errorf("invalid IP address: %v", ip)
 	}
 
-	exists, err := db.CheckIPRuleExists(m.DB, addrs[0].String())
+	exists, err := db.CheckIPRuleExists(m.DB, addr.String())
 	if err != nil {
 		return rule, err
 	}
@@ -114,15 +114,15 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule HostRule, err
 	util.Debug(m.Logger, "add_rule", "target", ip, "priority", prioString)
 
 	if m.DaemonMode {
-		err = m.sendAddHostsRequest(addrs, prio)
+		err = m.sendAddHostsRequest([]netip.Prefix{addr}, prio)
 	} else {
-		err = m.Classifier.AddIPsToPriority(addrs, prio)
+		err = m.Classifier.AddIPsToPriority([]netip.Prefix{addr}, prio)
 	}
 	if err != nil {
 		return HostRule{}, err
 	}
 
-	ipString := addrs[0].String()
+	ipString := addr.String()
 	err = db.AddIPToPriority(m.DB, ipString, prio)
 	if err != nil {
 		return rule, err
