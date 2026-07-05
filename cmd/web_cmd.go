@@ -35,6 +35,8 @@ func runWeb() *cobra.Command {
 				DBPath:          appConfig.GetString("db.path"),
 				SessionsAuthKey: appConfig.GetString("server.sessions.auth_key"),
 				SessionsEncKey:  appConfig.GetString("server.sessions.enc_key"),
+				DaemonMode:      deamonMode,
+				DaemonSock:      appConfig.GetString("daemon.sock"),
 				Debug:           debug,
 			})
 		},

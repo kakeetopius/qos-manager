@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	cfgFile string
-	debug   bool
+	cfgFile    string
+	debug      bool
+	deamonMode bool
 
 	appConfig *viper.Viper
 )
@@ -48,6 +49,12 @@ func init() {
 	rootCmd.PersistentFlags().String("db-path", "", "The path to the database file")
 	appConfig.BindPFlag("db.path", rootCmd.PersistentFlags().Lookup("db-path"))
 	appConfig.SetDefault("db.path", "./qos.db")
+
+	rootCmd.PersistentFlags().BoolVarP(&deamonMode, "daemon-mode", "d", false, "Run in daemon mode. In this mode priviliged operations like enabling tc on an interface are sent to the qos daemon")
+
+	rootCmd.PersistentFlags().String("sock", "", "The path to the qos daemon socket if running in daemon mode")
+	appConfig.BindPFlag("daemon.sock", rootCmd.PersistentFlags().Lookup("sock"))
+	appConfig.SetDefault("daemon.sock", "/run/qosd/qosd.sock")
 
 	rootCmd.AddCommand(
 		versionCmd(),

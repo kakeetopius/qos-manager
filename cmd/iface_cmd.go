@@ -40,7 +40,7 @@ func IfaceEnableCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
@@ -86,7 +86,7 @@ func IfaceDisableCmd() *cobra.Command {
 			}
 			defer dbCon.Close()
 
-			qosManager, err := qos.NewManager(dbCon)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbCon})
 			if err != nil {
 				return err
 			}

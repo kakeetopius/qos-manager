@@ -1,7 +1,11 @@
 // Package priority contains constants and functions to work with the different priority classes.
 package priority
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/kakeetopius/qosm/internal/protobuf"
+)
 
 type Priority int
 
@@ -19,6 +23,11 @@ func PriorityFromString(prioString string) (Priority, error) {
 	}
 
 	return 0, fmt.Errorf("unknown priority: %v", prioString)
+}
+
+func (p Priority) ToProtobufPriority() *protobuf.Priority {
+	prio := protobuf.Priority(p)
+	return &prio
 }
 
 func (p Priority) String() string {

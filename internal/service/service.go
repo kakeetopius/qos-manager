@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kakeetopius/qosm/internal/priority"
+	"github.com/kakeetopius/qosm/internal/protobuf"
 	"golang.org/x/sys/unix"
 )
 
@@ -72,6 +73,10 @@ func ServiceFromString(s string) (Service, error) {
 	return service, nil
 }
 
+func ServiceFrom(port uint16, proto IPProtocol) Service {
+	return Service{Port: port, Protocol: proto}
+}
+
 func ServiceFromNftSetKey(key []byte) (Service, error) {
 	if len(key) < 8 {
 		return Service{}, fmt.Errorf("nft key has a wrong size. expected 8 bytes got: %v bytes", len(key))
@@ -84,6 +89,26 @@ func ServiceFromNftSetKey(key []byte) (Service, error) {
 		Protocol: IPProtocol(proto),
 		Port:     port,
 	}, nil
+}
+
+func ServiceFromProtobufService(protoService *protobuf.Service) Service {
+	port := protoService.GetPort()
+	protocol := protoService.GetProtocol()
+
+	return Service{
+		Port:     uint16(port),
+		Protocol: IPProtocol(protocol),
+	}
+}
+
+func (s Service) ToProtobufService() *protobuf.Service {
+	port := int32(s.Port)
+	protocol := int32(s.Protocol)
+
+	return protobuf.Service_builder{
+		Port:     &port,
+		Protocol: &protocol,
+	}.Build()
 }
 
 func (s Service) NFTSetKey() []byte {

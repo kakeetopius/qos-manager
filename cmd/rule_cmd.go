@@ -67,7 +67,7 @@ func RuleFlushCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}

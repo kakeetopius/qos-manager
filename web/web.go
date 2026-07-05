@@ -12,6 +12,7 @@ import (
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/qos"
 	"github.com/kakeetopius/qosm/web/server"
 	_ "modernc.org/sqlite"
 )
@@ -26,6 +27,8 @@ type ServerOptions struct {
 	SessionsEncKey  string
 	SessionsAuthKey string
 	Debug           bool
+	DaemonMode      bool
+	DaemonSock      string
 }
 
 func Run(opts ServerOptions) error {
@@ -58,7 +61,12 @@ func Run(opts ServerOptions) error {
 		Settings: settings,
 	}
 
-	err = app.Init()
+	err = app.InitQoSManager(qos.Options{
+		DB:         dbConn,
+		Logger:     app.Logger,
+		DaemonMode: opts.DaemonMode,
+		DaemonSock: opts.DaemonSock,
+	})
 	if err != nil {
 		return err
 	}

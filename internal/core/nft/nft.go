@@ -128,6 +128,15 @@ func (c *NFT) IfaceExistsInSet(ifaceName string) (bool, error) {
 	return ifaceExistsInIfaceSet(c.conn, c.QosTable.IfaceSet, ifaceName)
 }
 
+func (c *NFT) FlushAllRules() {
+	c.conn.FlushSet(c.QosTable.IPSets.HighPrioIP4Set)
+	c.conn.FlushSet(c.QosTable.IPSets.HighPrioIP6Set)
+	c.conn.FlushSet(c.QosTable.IPSets.LowPrioIP4Set)
+	c.conn.FlushSet(c.QosTable.IPSets.LowPrioIP6Set)
+	c.conn.FlushSet(c.QosTable.ServiceSets.HighPrioServiceSet)
+	c.conn.FlushSet(c.QosTable.ServiceSets.LowPrioServiceSet)
+}
+
 // DeleteTable removes the qosm nftables table from the system. The context becomes invalid after this operation.
 func (c *NFT) DeleteTable() error {
 	fmt.Println("Deleting table")

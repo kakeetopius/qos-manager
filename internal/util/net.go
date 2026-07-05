@@ -1,11 +1,16 @@
 package util
 
 import (
-	"net"
 	"net/netip"
+
+	"github.com/kakeetopius/qosm/internal/protobuf"
 )
 
-func NetIPtoNetIPPRefix(ips []net.IP) []netip.Prefix {
+type ipSlice interface {
+	~[]byte
+}
+
+func IPSlicestoNetIPPRefix[T ipSlice](ips []T) []netip.Prefix {
 	addrs := make([]netip.Prefix, 0, len(ips))
 
 	for _, ip := range ips {
@@ -29,4 +34,43 @@ func NetIPtoNetIPPRefix(ips []net.IP) []netip.Prefix {
 	}
 
 	return addrs
+}
+
+func IPPrefixesFromProtobufIPs(ips []*protobuf.IPPrefix) []netip.Prefix {
+	addrs := make([]netip.Prefix, 0, len(ips))
+
+	for _, ip := range ips {
+		ipSlice := ip.GetIp()
+		prefix := ip.GetPrefixLen()
+
+		addr, ok := netip.AddrFromSlice(ipSlice)
+		if !ok {
+			continue
+		}
+
+		addrs = append(addrs, netip.PrefixFrom(addr, int(prefix)))
+	}
+
+	return addrs
+}
+
+func IPPrefixesToProtobufIPs(ips []netip.Prefix) []*protobuf.IPPrefix {
+	protobufIPs := make([]*protobuf.IPPrefix, 0, len(ips))
+	for _, ip := range ips {
+		bits := ip.Bits()
+		prefixLen := int32(bits)
+		protoIP := protobuf.IPPrefix_builder{
+			Ip:        ip.Addr().AsSlice(),
+			PrefixLen: &prefixLen,
+		}.Build()
+		protobufIPs = append(protobufIPs, protoIP)
+	}
+	return protobufIPs
+}
+
+func GetProtobufInterface(ifname string, ifIndex int32) *protobuf.Interface {
+	return protobuf.Interface_builder{
+		Name:    &ifname,
+		Ifindex: &ifIndex,
+	}.Build()
 }

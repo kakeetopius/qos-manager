@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func createQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
+func CreateQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
 	htbIface := HTBObjects{}
 	err := tcnl.SetOption(netlink.ExtendedAcknowledge, true) // for better error messages
 	if err != nil {
@@ -72,7 +72,7 @@ func createQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, err
 	}, nil
 }
 
-func getQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
+func GetQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
 	htbIface := HTBObjects{}
 	qdiscs, qerr := tcnl.Qdisc().Get()
 	if qerr != nil {

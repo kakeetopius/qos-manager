@@ -28,7 +28,7 @@ func HostRuleAddCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
@@ -85,7 +85,7 @@ func HostRuleDeleteCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
@@ -144,17 +144,17 @@ func HostRuleListCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManger, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
-			defer qosManger.Close()
+			defer qosManager.Close()
 
-			highPrio, err := qosManger.GetHighPriorityHostRules()
+			highPrio, err := qosManager.GetHighPriorityHostRules()
 			if err != nil {
 				return err
 			}
-			lowPrio, err := qosManger.GetLowPriorityHostRules()
+			lowPrio, err := qosManager.GetLowPriorityHostRules()
 			if err != nil {
 				return err
 			}
@@ -205,7 +205,7 @@ func HostRuleRefreshCmd() *cobra.Command {
 			}
 			defer dbCon.Close()
 
-			qosManager, err := qos.NewManager(dbCon)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbCon})
 			if err != nil {
 				return err
 			}

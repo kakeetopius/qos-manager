@@ -39,7 +39,7 @@ func ServiceRuleAddCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
@@ -98,7 +98,7 @@ func ServiceRuleDeleteCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
@@ -146,17 +146,17 @@ func ServiceRuleListCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManger, err := qos.NewManager(dbConn)
+			qosManager, err := qos.NewManager(qos.Options{DB: dbConn})
 			if err != nil {
 				return err
 			}
-			defer qosManger.Close()
+			defer qosManager.Close()
 
-			highPrio, err := qosManger.GetHighPriorityServices()
+			highPrio, err := qosManager.GetHighPriorityServices()
 			if err != nil {
 				return err
 			}
-			lowPrio, err := qosManger.GetLowPriorityServices()
+			lowPrio, err := qosManager.GetLowPriorityServices()
 			if err != nil {
 				return err
 			}

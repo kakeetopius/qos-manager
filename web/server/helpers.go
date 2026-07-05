@@ -28,12 +28,11 @@ type Server struct {
 	Logger     *slog.Logger
 }
 
-func (app *Server) Init() error {
-	qosManager, err := qos.NewManager(app.DB)
+func (app *Server) InitQoSManager(opts qos.Options) error {
+	qosManager, err := qos.NewManager(opts)
 	if err != nil {
 		return err
 	}
-	qosManager.WithLogger(app.Logger)
 
 	err = qosManager.InitQoSClassifier(true)
 	if err != nil {
