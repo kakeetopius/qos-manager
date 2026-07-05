@@ -13,6 +13,9 @@ import (
 )
 
 func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule HostRule, err error) {
+	if m.Classifier == nil && !m.DaemonMode {
+		return HostRule{}, ErrClassifierNotInitialised
+	}
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
@@ -38,7 +41,6 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule HostR
 		return HostRule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
 	}
 
-	util.Debug(m.Logger, "resolving_domain", "domain_name", domain)
 	ips, err := net.LookupIP(domain)
 	if err != nil {
 		util.Debug(m.Logger, "resolve_error", "domain_name", domain, "error", err.Error())
@@ -50,11 +52,13 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule HostR
 		Description: "Resolved domain " + domain + " to " + ipSliceToString(ips),
 	})
 
-	addrs := util.NetIPtoNetIPPRefix(ips)
+	addrs := util.IPSlicestoNetIPPRefix(ips)
 
-	util.Debug(m.Logger, "add_rule", "target", domain, "priority", prioString)
-
-	err = m.Classifier.AddIPsToPriority(addrs, prio)
+	if m.DaemonMode {
+		err = m.sendAddHostsRequest(addrs, prio)
+	} else {
+		err = m.Classifier.AddIPsToPriority(addrs, prio)
+	}
 	if err != nil {
 		return HostRule{}, err
 	}
@@ -79,6 +83,9 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule HostR
 }
 
 func (m *QoSManager) AddIPRule(ip string, prioString string) (rule HostRule, err error) {
+	if m.Classifier == nil && !m.DaemonMode {
+		return HostRule{}, ErrClassifierNotInitialised
+	}
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
@@ -106,7 +113,11 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule HostRule, err
 
 	util.Debug(m.Logger, "add_rule", "target", ip, "priority", prioString)
 
-	err = m.Classifier.AddIPsToPriority(addrs, prio)
+	if m.DaemonMode {
+		err = m.sendAddHostsRequest(addrs, prio)
+	} else {
+		err = m.Classifier.AddIPsToPriority(addrs, prio)
+	}
 	if err != nil {
 		return HostRule{}, err
 	}
@@ -182,6 +193,10 @@ func (m *QoSManager) DeleteDomainRuleByName(name string) error {
 }
 
 func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
+
 	ipRule, err := db.GetIPRuleByID(m.DB, ipRuleID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -203,7 +218,11 @@ func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {
 		return err
 	}
 
-	err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	if m.DaemonMode {
+		err = m.sendDeleteHostsRequest([]netip.Prefix{addr}, ipRule.Priority)
+	} else {
+		err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	}
 	if err != nil {
 		return err
 	}
@@ -212,6 +231,9 @@ func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {
 }
 
 func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
 	ipRule, err := db.GetIPRuleByName(m.DB, ipRuleName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -233,7 +255,11 @@ func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
 		return err
 	}
 
-	err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	if m.DaemonMode {
+		err = m.sendDeleteHostsRequest([]netip.Prefix{addr}, ipRule.Priority)
+	} else {
+		err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	}
 	if err != nil {
 		return err
 	}
@@ -281,6 +307,9 @@ func (m *QoSManager) GetLowPriorityHostRules() ([]HostRule, error) {
 }
 
 func (m *QoSManager) deleteDomainAddrs(domainRule db.DomainRule) error {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
 	addrs := make([]netip.Prefix, 0, len(domainRule.IPs))
 	for _, addr := range domainRule.IPs {
 		ip, iperr := netip.ParsePrefix(addr.IP)
@@ -290,5 +319,12 @@ func (m *QoSManager) deleteDomainAddrs(domainRule db.DomainRule) error {
 		addrs = append(addrs, ip)
 	}
 
-	return m.Classifier.DeleteIPsFromPriority(addrs, domainRule.Priority)
+	var err error
+	if m.DaemonMode {
+		err = m.sendDeleteHostsRequest(addrs, domainRule.Priority)
+	} else {
+		m.Classifier.DeleteIPsFromPriority(addrs, domainRule.Priority)
+	}
+
+	return err
 }

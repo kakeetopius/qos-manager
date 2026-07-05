@@ -2,63 +2,33 @@
 package qos
 
 import (
-	"database/sql"
-	"errors"
+	"fmt"
 	"log/slog"
-	"math"
 	"net"
 	"net/netip"
-	"os"
 
 	"github.com/florianl/go-tc"
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/service"
-	"github.com/mdlayher/ethtool"
 )
 
-func NewManager(dbCon *sql.DB) (*QoSManager, error) {
+func NewManager(o Options) (*QoSManager, error) {
 	tcnl, err := tc.Open(&tc.Config{})
 	if err != nil {
 		return nil, err
 	}
 
 	qosManager := QoSManager{
-		Ifaces: make(map[string]Interface),
-		TcConn: tcnl,
-		DB:     dbCon,
+		Ifaces:  make(map[string]Interface),
+		TcConn:  tcnl,
+		Options: o,
 	}
 
-	ifaces, err := net.Interfaces()
+	err = qosManager.getNetInterfaces()
 	if err != nil {
 		return nil, err
-	}
-	for _, iface := range ifaces {
-		speed, err := getInterfaceSpeed(iface.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		exists, err := db.CheckInterfaceExists(dbCon, iface.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		var rate uint32
-		if exists {
-			dbrate, err := db.GetInterfaceField(dbCon, iface.Name, "rate")
-			if err != nil {
-				return nil, err
-			}
-			rate64 := dbrate.(int64)
-			rate = uint32(rate64)
-		}
-
-		qosManager.Ifaces[iface.Name] = Interface{
-			Interface:   iface,
-			LinkSpeed:   speed,
-			ShapingRate: rate,
-		}
 	}
 
 	return &qosManager, nil
@@ -69,6 +39,10 @@ func (m *QoSManager) WithLogger(l *slog.Logger) {
 }
 
 func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
+	if m.DaemonMode {
+		return fmt.Errorf("cannot initalise qos classifier in daemon mode")
+	}
+
 	nftCtx, err := nft.NewNFTCtx(nft.NFTOpts{
 		CreateIfNotExists: createIfNotExists,
 		Logger:            m.Logger,
@@ -82,19 +56,26 @@ func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
 }
 
 func (m *QoSManager) InitSavedRules() error {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
 	ipRules, err := db.GetAllIPRules(m.DB)
 	if err != nil {
 		return err
 	}
+	highPrioIPs := make([]netip.Prefix, 0, 10)
+	lowPrioIPs := make([]netip.Prefix, 0, 10)
 
 	for _, rule := range ipRules {
 		ip, ipErr := netip.ParsePrefix(rule.IP)
 		if ipErr != nil {
 			return ipErr
 		}
-		ipErr = m.Classifier.AddIPsToPriority([]netip.Prefix{ip}, rule.Priority)
-		if ipErr != nil {
-			return ipErr
+		switch rule.Priority {
+		case priority.PRIORITYHIGH:
+			highPrioIPs = append(highPrioIPs, ip)
+		case priority.PRIORITYLOW:
+			lowPrioIPs = append(lowPrioIPs, ip)
 		}
 	}
 
@@ -108,10 +89,29 @@ func (m *QoSManager) InitSavedRules() error {
 		if ipErr != nil {
 			return ipErr
 		}
-		err = m.Classifier.AddIPsToPriority(ips, rule.Priority)
+		switch rule.Priority {
+		case priority.PRIORITYHIGH:
+			highPrioIPs = append(highPrioIPs, ips...)
+		case priority.PRIORITYLOW:
+			lowPrioIPs = append(lowPrioIPs, ips...)
+		}
+	}
+
+	if m.DaemonMode {
+		err = m.sendAddHostsRequest(highPrioIPs, priority.PRIORITYHIGH)
 		if err != nil {
 			return err
 		}
+		err = m.sendAddHostsRequest(lowPrioIPs, priority.PRIORITYLOW)
+	} else {
+		err = m.Classifier.AddIPsToPriority(highPrioIPs, priority.PRIORITYHIGH)
+		if err != nil {
+			return err
+		}
+		err = m.Classifier.AddIPsToPriority(lowPrioIPs, priority.PRIORITYLOW)
+	}
+	if err != nil {
+		return err
 	}
 
 	serviceRules, err := db.GetAllServiceRules(m.DB)
@@ -119,11 +119,32 @@ func (m *QoSManager) InitSavedRules() error {
 		return err
 	}
 
+	highPrioServ := make([]service.Service, 0, 10)
+	lowPrioServ := make([]service.Service, 0, 10)
 	for _, rule := range serviceRules {
-		err = m.Classifier.AddServicesToPriority([]service.Service{rule.Service}, rule.Priority)
+		switch rule.Priority {
+		case priority.PRIORITYHIGH:
+			highPrioServ = append(highPrioServ, rule.Service)
+		case priority.PRIORITYLOW:
+			lowPrioServ = append(lowPrioServ, rule.Service)
+		}
+	}
+
+	if m.DaemonMode {
+		err = m.sendAddServicesRequest(highPrioServ, priority.PRIORITYHIGH)
 		if err != nil {
 			return err
 		}
+		err = m.sendAddServicesRequest(lowPrioServ, priority.PRIORITYLOW)
+	} else {
+		err = m.Classifier.AddServicesToPriority(highPrioServ, priority.PRIORITYHIGH)
+		if err != nil {
+			return err
+		}
+		err = m.Classifier.AddServicesToPriority(lowPrioServ, priority.PRIORITYLOW)
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -133,17 +154,14 @@ func (m *QoSManager) Close() {
 }
 
 func (m *QoSManager) DeleteAllRules() error {
-	var err error
-	if m.Classifier != nil {
-		err = m.Classifier.DeleteTable()
-	} else {
-		err = nft.DeleteTable()
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
 	}
-
-	if err != nil {
-		if !errors.Is(err, nft.ErrTableNotFound) {
-			return err
-		}
+	var err error
+	if m.DaemonMode {
+		err = m.sendFlushAllRulesRequest()
+	} else {
+		m.Classifier.FlushAllRules()
 	}
 
 	err = db.FlushDomainRules(m.DB)
@@ -164,24 +182,38 @@ func (m *QoSManager) DeleteAllRules() error {
 	return nil
 }
 
-func getInterfaceSpeed(ifName string) (uint32, error) {
-	client, err := ethtool.New()
+func (m *QoSManager) getNetInterfaces() error {
+	ifaces, err := net.Interfaces()
 	if err != nil {
-		return 0, err
+		return err
 	}
-
-	linkMode, err := client.LinkMode(ethtool.Interface{Name: ifName})
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) { // returned if the interface is not an ethernet interface.
-			return 0, nil
+	for _, iface := range ifaces {
+		speed, err := getInterfaceSpeed(iface.Name)
+		if err != nil {
+			return err
 		}
-		return 0, err
+
+		exists, err := db.CheckInterfaceExists(m.DB, iface.Name)
+		if err != nil {
+			return err
+		}
+
+		var rate uint32
+		if exists {
+			dbrate, err := db.GetInterfaceField(m.DB, iface.Name, "rate")
+			if err != nil {
+				return err
+			}
+			rate64 := dbrate.(int64)
+			rate = uint32(rate64)
+		}
+
+		m.Ifaces[iface.Name] = Interface{
+			Interface:   iface,
+			LinkSpeed:   speed,
+			ShapingRate: rate,
+		}
 	}
 
-	speed := linkMode.SpeedMegabits
-	if speed == math.MaxUint32 { // returned if the interface has speed of -1 meaning speed is not known to kernel
-		speed = 0
-	}
-
-	return uint32(speed), nil
+	return nil
 }

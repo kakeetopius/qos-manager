@@ -31,7 +31,11 @@ func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (ru
 		return rule, fmt.Errorf("rule for %v already exists", serv.String())
 	}
 
-	err = m.Classifier.AddServicesToPriority([]service.Service{serv}, prio)
+	if m.DaemonMode {
+		err = m.sendAddServicesRequest(serv, prio)
+	} else {
+		err = m.Classifier.AddServicesToPriority([]service.Service{serv}, prio)
+	}
 	if err != nil {
 		return service.ServiceRule{}, err
 	}
@@ -66,7 +70,11 @@ func (m *QoSManager) DeleteServiceRuleByID(servID int) (err error) {
 		}
 	}()
 
-	err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
+	if m.DaemonMode {
+		err = m.sendDeleteServiceRequest(servRule.Service, servRule.Priority)
+	} else {
+		err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
+	}
 	if err != nil {
 		return err
 	}
@@ -91,7 +99,11 @@ func (m *QoSManager) DeleteServiceRule(serv service.Service) error {
 		}
 	}()
 
-	err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
+	if m.DaemonMode {
+		err = m.sendDeleteServiceRequest(serv, servRule.Priority)
+	} else {
+		err = m.Classifier.DeleteServicesFromPriority([]service.Service{servRule.Service}, servRule.Priority)
+	}
 	if err != nil {
 		return err
 	}

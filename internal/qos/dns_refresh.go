@@ -34,7 +34,7 @@ func (m *QoSManager) RefreshAllDomains() error {
 			util.Error(m.Logger, "resolve_error", "domain_name", domain.DomainName, "error", err.Error())
 			return err
 		}
-		newIPs := util.NetIPtoNetIPPRefix(addrs)
+		newIPs := util.IPSlicestoNetIPPRefix(addrs)
 
 		err = m.clearOldIPs(&domain, oldIPs)
 		if err != nil {

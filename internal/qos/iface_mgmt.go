@@ -1,6 +1,7 @@
 package qos
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -9,12 +10,12 @@ import (
 )
 
 func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err error) {
-	if m.Ifaces == nil {
-		m.Ifaces = make(map[string]Interface)
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
 	}
 
-	if m.Classifier == nil {
-		return fmt.Errorf("nft classifier not intialised")
+	if m.Ifaces == nil {
+		m.Ifaces = make(map[string]Interface)
 	}
 
 	if rate == 0 {
@@ -38,16 +39,20 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		iface.Interface = *netIface
 	}
 
-	htbObjs, err := htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
+	if m.DaemonMode {
+		err = m.sendEnableIfaceRequest(ifaceName, iface.Index)
+	} else {
+		err = htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
+		if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+			return err
+		}
+
+		err = m.Classifier.AddIfaces([]string{iface.Name})
+	}
+
 	if err != nil {
 		return err
 	}
-
-	err = m.Classifier.AddIfaces([]string{iface.Name})
-	if err != nil {
-		return err
-	}
-
 	err = db.AddInterface(m.DB, db.DBInterface{
 		Name:       iface.Name,
 		IfaceIndex: iface.Index,
@@ -58,7 +63,6 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		return err
 	}
 
-	iface.HTBObjects = htbObjs
 	iface.QoSEnabled = true
 	iface.ShapingRate = rate
 	m.Ifaces[iface.Name] = iface
@@ -67,8 +71,8 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 }
 
 func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
-	if m.Classifier == nil {
-		return fmt.Errorf("nft classifier not intialised")
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
 	}
 
 	defer func() {
@@ -90,16 +94,18 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 		}
 	}
 
-	err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
-	if err != nil {
-		return err
-	}
-
-	if m.Classifier != nil {
-		err = m.Classifier.DeleteIfaces([]string{iface.Name})
+	if m.DaemonMode {
+		err = m.sendDisableIfaceRequest(ifaceName, iface.Index)
+	} else {
+		err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
 		if err != nil {
 			return err
 		}
+
+		err = m.Classifier.DeleteIfaces([]string{iface.Name})
+	}
+	if err != nil {
+		return err
 	}
 
 	err = db.DisableInterface(m.DB, iface.Name)
@@ -114,8 +120,8 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 }
 
 func (m *QoSManager) InitSavedInterfaceSettings() error {
-	if m.Classifier == nil {
-		return fmt.Errorf("nft filter not intialised")
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
 	}
 	enabledIfaces, err := db.GetEnabledInterfaces(m.DB)
 	if err != nil {
