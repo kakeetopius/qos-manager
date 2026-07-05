@@ -1,0 +1,81 @@
+edition = "2024";
+
+package qosm.v1;
+
+option go_package = "github.com/kakeetopius/qosm/internal/protobuf";
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_HIGH = 10;
+  PRIORITY_LOW = 20;
+}
+
+message Service {
+  int32 port = 1;
+  int32 protocol = 2;
+}
+
+message Interface {
+  string name = 1;
+  int32 ifindex = 2;
+}
+
+message IPPrefix {
+  bytes ip = 1;
+  int32 prefix_len = 2;
+}
+
+message Request {
+  oneof command {
+    AddHosts add_hosts = 1;
+    DeleteHosts delete_hosts = 2;
+    AddServices add_services = 3;
+    DeleteServices delete_services = 4;
+    EnableIfaces enable_ifaces = 5;
+    DisableIfaces disable_ifaces = 6;
+    FlushRules flush_rules = 7;
+  }
+}
+
+message Response {
+  oneof response {
+    Success success_op = 1;
+    Error error = 2;
+  }
+}
+
+message AddHosts {
+  repeated IPPrefix ips = 1;
+  Priority priority = 2;
+}
+
+message DeleteHosts {
+  repeated IPPrefix ips = 1;
+  Priority priority = 2;
+}
+
+message AddServices {
+  repeated Service services = 1;
+  Priority priority = 2;
+}
+
+message DeleteServices {
+  repeated Service services = 1;
+  Priority priority = 2;
+}
+
+message EnableIfaces {
+  repeated Interface ifaces = 1;
+}
+
+message DisableIfaces {
+  repeated Interface ifaces = 1;
+}
+
+message FlushRules {}
+
+message Error {
+  string error_message = 1;
+}
+
+message Success {}
