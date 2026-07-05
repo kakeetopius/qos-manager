@@ -2,12 +2,15 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
@@ -78,6 +81,14 @@ func Run(opts ServerOptions) error {
 	app.AddRoutes(router)
 	app.AddStaticRoutes(router, &staticFS)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		awaitSignal(ctx)
+		app.QoSManager.Close()
+		os.Exit(1)
+	}()
+
 	router.Run(getAddress(opts.Addr, opts.Port))
 	return nil
 }
@@ -127,4 +138,19 @@ func getAddress(addr string, port int) string {
 	}
 
 	return fmt.Sprintf("%v:%v", addr, port)
+}
+
+func awaitSignal(ctx context.Context) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	for {
+		select {
+		case <-signalChan:
+			fmt.Println("Shutting down..................")
+			os.Exit(1)
+		case <-ctx.Done():
+			return
+		}
+	}
 }

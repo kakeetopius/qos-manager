@@ -135,11 +135,11 @@
 						</td>
 
 						<td class="py-3 px-3">
-							{{ if eq .Priority "high" }}
+							{{ if eq .Priority.String "high" }}
 							<span class="px-2 py-1 rounded bg-green-500/10 text-green-400 text-xs">
 								high
 							</span>
-							{{ else if eq .Priority "low" }}
+							{{ else if eq .Priority.String "low" }}
 							<span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 text-xs">
 								low
 							</span>
