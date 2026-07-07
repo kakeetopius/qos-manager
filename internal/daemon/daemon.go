@@ -11,9 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/florianl/go-tc"
 	"github.com/kakeetopius/qosm/internal/core/htb"
@@ -84,8 +82,6 @@ func (d *Daemon) Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go d.awaitSignal(ctx)
-
 	sock, err := net.Listen("unix", d.SocketPath)
 	if err != nil {
 		return fmt.Errorf("error creating socket: %w", err)
@@ -95,36 +91,30 @@ func (d *Daemon) Run() error {
 		return err
 	}
 
+	go func() {
+		util.AwaitSignal(ctx)
+		d.cleanUp()
+		os.Exit(1)
+	}()
+
 	fmt.Println("Waiting for connections.......")
 	for {
 		conn, err := sock.Accept()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			continue
 		}
 		fmt.Println("Got connection from: ", conn.RemoteAddr())
 		err = d.handleConnection(conn)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}
 }
 
-func (d *Daemon) awaitSignal(ctx context.Context) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	for {
-		select {
-		case <-signalChan:
-			fmt.Println("Stopping daemon..........")
-			os.Remove(d.SocketPath)
-			d.TcConn.Close()
-			os.Exit(1)
-		case <-ctx.Done():
-			return
-		}
-	}
+func (d *Daemon) cleanUp() {
+	os.Remove(d.SocketPath)
+	d.TcConn.Close()
 }
 
 func (d *Daemon) handleConnection(conn net.Conn) error {
@@ -172,12 +162,9 @@ func (d *Daemon) handleConnection(conn net.Conn) error {
 	}
 
 	if err != nil {
-		sendErrMsg(conn, err.Error())
-	} else {
-		sendSuccesMsg(conn)
+		return sendErrMsg(conn, err.Error())
 	}
-
-	return nil
+	return sendSuccesMsg(conn)
 }
 
 func (d *Daemon) handleAddHostsRequest(request *protobuf.Request) error {

@@ -19,8 +19,8 @@ func ServiceRuleAddCmd() *cobra.Command {
 	ruleAddCmd := cobra.Command{
 		Use:   "add service...",
 		Short: "Add a QoS rule(s) that matches a service i.e protocol and port.",
-		Example: `  qosm rule service add tcp/443 --priority high
-  qosm rule service add tcp/80 udp/53 tcp/22 --priority high`,
+		Example: `  qosm rules service add tcp/443 --priority high
+  qosm rules service add tcp/80 udp/53 tcp/22 --priority high`,
 		Aliases: []string{"a"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,8 +83,8 @@ func ServiceRuleDeleteCmd() *cobra.Command {
 	ruleDeleteCmd := cobra.Command{
 		Use:   "delete service...",
 		Short: "Delete a QoS rule(s) that matches a service",
-		Example: `  qosm rule service delete tcp/443
-  qosm rule service delete tcp/80 udp/53 tcp/22`,
+		Example: `  qosm rules service delete tcp/443
+  qosm rules service delete tcp/80 udp/53 tcp/22`,
 		Aliases: []string{"d"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -9,13 +9,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/qos"
+	"github.com/kakeetopius/qosm/internal/util"
 	"github.com/kakeetopius/qosm/web/server"
 	_ "modernc.org/sqlite"
 )
@@ -83,9 +82,10 @@ func Run(opts ServerOptions) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	go func() {
-		awaitSignal(ctx)
-		app.QoSManager.Close()
+		util.AwaitSignal(ctx)
+		app.CleanUp()
 		os.Exit(1)
 	}()
 
@@ -138,19 +138,4 @@ func getAddress(addr string, port int) string {
 	}
 
 	return fmt.Sprintf("%v:%v", addr, port)
-}
-
-func awaitSignal(ctx context.Context) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	for {
-		select {
-		case <-signalChan:
-			fmt.Println("Shutting down..................")
-			os.Exit(1)
-		case <-ctx.Done():
-			return
-		}
-	}
 }

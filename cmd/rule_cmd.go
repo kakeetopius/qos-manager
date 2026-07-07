@@ -10,7 +10,7 @@ import (
 
 func RuleCmd() *cobra.Command {
 	ruleCmd := cobra.Command{
-		Use:     "rule",
+		Use:     "rules",
 		Short:   "Manage QoS rules.",
 		Aliases: []string{"r"},
 	}
@@ -41,8 +41,10 @@ func HostRuleCmd() *cobra.Command {
 
 func ServiceRuleCmd() *cobra.Command {
 	serviceRuleCmd := cobra.Command{
-		Use:     "service",
-		Short:   "Manage service rules i.e rules that match based on port and protocol.",
+		Use:   "service",
+		Short: "Manage service rules i.e rules that match based on port and protocol.",
+		Example: `Services can be given in the form protocol/port e.g 
+  tcp/80 udp/53	tcp/22 tcp/443 udp/900`,
 		Aliases: []string{"serv", "s"},
 	}
 

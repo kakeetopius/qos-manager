@@ -103,3 +103,8 @@ func (app *Server) AddStaticRoutes(router *gin.Engine, staticFS *embed.FS) error
 
 	return nil
 }
+
+func (app *Server) CleanUp() {
+	app.QoSManager.Close()
+	app.DB.Close()
+}

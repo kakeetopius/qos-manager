@@ -18,8 +18,8 @@ To address this, a small privileged daemon can be started with 'sudo qosm daemon
 operations to the daemon hence no longer requiring to run with 'sudo' as long the daemon is running. Only the daemon requires sudo.
 
 Note: subsequent usages of qosm will require using the --daemon-mode or -d flag e.g
-qosm rule service add tcp/80 udp/53 --daemon-mode
-qosm web run --daemon-mode
+  qosm rule service add tcp/80 udp/53 --daemon-mode
+  qosm web run -d
 `,
 	}
 
@@ -34,8 +34,7 @@ func runDaemonCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := daemon.New(daemon.Options{
 				SocketPath: appConfig.GetString("daemon.sock"),
-
-				Debug: debug,
+				Debug:      debug,
 			})
 			if err != nil {
 				return err

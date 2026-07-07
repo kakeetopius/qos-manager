@@ -1,4 +1,4 @@
-// Package qos
+// Package qos contains code for the qos manager that controls and co-ordinates all qos operations like enabling tc on an interface, adding rules etc.
 package qos
 
 import (

@@ -52,7 +52,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&deamonMode, "daemon-mode", "d", false, "Run in daemon mode. In this mode priviliged operations like enabling tc on an interface are sent to the qos daemon")
 
-	rootCmd.PersistentFlags().String("sock", "", "The path to the qos daemon socket if running in daemon mode")
+	rootCmd.PersistentFlags().String("sock", "", "The path to the qos daemon socket if running in daemon mode (default is /run/qosd/qosd.sock)")
 	appConfig.BindPFlag("daemon.sock", rootCmd.PersistentFlags().Lookup("sock"))
 	appConfig.SetDefault("daemon.sock", "/run/qosd/qosd.sock")
 
