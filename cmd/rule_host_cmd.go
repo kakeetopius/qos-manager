@@ -60,9 +60,9 @@ func HostRuleDeleteCmd() *cobra.Command {
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			qosManager, err := getQosManager(nft.NFTOpts{
-				CreateTableIfNotExists: false,
+				CreateTableIfNotExists: true,
 			})
-			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
+			if err != nil {
 				return err
 			}
 			defer qosManager.Close()

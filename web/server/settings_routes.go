@@ -34,7 +34,7 @@ func (app *Server) GetInterfaceSettingsPopUp(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "interface_settings", iface)
+	c.HTML(http.StatusOK, "interface_popup", iface)
 }
 
 func (app *Server) PostInterfaceSettings(c *gin.Context) {
@@ -54,7 +54,7 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 		}
 	}()
 
-	classPercentages, err := htb.ClassPercentagesFromStrings(highPrioPercentage, lowPrioPercentage, defaultPercentage)
+	classPercentages, err := htb.ClassPercentagesFromStrings(highPrioPercentage, defaultPercentage, lowPrioPercentage)
 	if err != nil {
 		return
 	}
@@ -121,10 +121,20 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 		}
 		c.HTML(http.StatusOK, "interface_table_row", gin.H{
 			"Iface":   iface,
-			"Message": "Successfully changed class percentages for interface " + ifaceName,
+			"Message": "Successfully changed class percentages for interface " + ifaceName + " to " + classPercentages.String(),
 		})
 		return
 	}
+}
+
+func (app *Server) RefreshInterfaces(c *gin.Context) {
+	err := app.QoSManager.RefreshInterfaces()
+	if err != nil {
+		c.Error(err)
+	}
+	c.HTML(http.StatusOK, "interface_table", gin.H{
+		"Ifaces": app.QoSManager.Ifaces,
+	})
 }
 
 func (app *Server) PostDNSSettings(c *gin.Context) {

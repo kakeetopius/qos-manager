@@ -75,6 +75,7 @@ func (app *Server) AddRoutes(router *gin.Engine) {
 	admin.GET("/settings", app.SettingsPage)
 	admin.POST("/settings/interfaces/:ifaceName", app.PostInterfaceSettings)
 	admin.GET("/settings/interfaces/:ifaceName", app.GetInterfaceSettingsPopUp)
+	admin.GET("/settings/interfaces/refresh", app.RefreshInterfaces)
 	admin.POST("/settings/dns/save", app.PostDNSSettings)
 	admin.POST("/settings/security/save", app.PostSecuritySettings)
 

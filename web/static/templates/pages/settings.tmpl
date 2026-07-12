@@ -1,47 +1,27 @@
 {{ define "content" }}
 <main class="flex-1 p-8 space-y-8">
 
-
 	<!-- ================= INTERFACE SETTINGS ================= -->
 	<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
 
-		<h3 class="text-lg font-semibold">Interface Settings</h3>
+		<div class="flex items-center justify-between">
+			<div>
+				<h3 class="text-lg font-semibold">Interface Settings</h3>
 
-		<p class="text-sm text-zinc-400">
-			Configure QoS for individual network interfaces.
-		</p>
-
-		<div class="divide-y divide-zinc-800">
-
-			{{ range .Ifaces }}
-
-			<div class="flex items-center justify-between py-4" id="iface-{{ .Name }}">
-				<p class="font-medium text-zinc-100">
-					{{ .Name }}
+				<p class="mt-1 text-sm text-zinc-400">
+					Configure QoS for individual network interfaces.
 				</p>
-				<!-- Status + Action -->
-				<div class="flex items-center gap-8">
-					{{ if .QoSEnabled }}
-					<div class="flex items-center gap-2 text-sm text-green-400">
-						<span class="h-2.5 w-2.5 rounded-full bg-green-500"></span>
-						<span>Enabled</span>
-					</div>
-					{{ else }}
-					<div class="flex items-center gap-2 text-sm text-red-400">
-						<span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-						<span>Disabled</span>
-					</div>
-					{{ end }}
-					<button class="text-sm font-medium text-blue-400 hover:text-blue-100 transition"
-						hx-get="/settings/interfaces/{{ .Name }}" hx-target="#modal" hx-swap="innerHTML">
-						Configure
-					</button>
-				</div>
 			</div>
 
-			{{ end }}
+			<button
+				class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+				hx-get="/settings/interfaces/refresh" hx-target="#interface-table" hx-swap="outerHTML">
+				Refresh
+			</button>
 		</div>
 
+
+		{{ block "interface_table.tmpl" .}} {{ end }}
 	</section>
 	<!-- ================= DNS SETTINGS ================= -->
 	<form hx-post="/settings/dns/save" hx-swap="none">

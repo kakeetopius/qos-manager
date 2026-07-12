@@ -116,7 +116,7 @@ func createRenderer() (multitemplate.Renderer, error) {
 			files = append(files, "partials/logs_view.tmpl")
 		}
 		if page == "settings" {
-			files = append(files, "partials/interface_table_row.tmpl")
+			files = append(files, "partials/interface_table_row.tmpl", "partials/interface_table.tmpl")
 		}
 		if page == "analytics" {
 			files = append(files, "partials/interface_stats.tmpl", "partials/global_stats.tmpl")
@@ -124,13 +124,15 @@ func createRenderer() (multitemplate.Renderer, error) {
 		r.AddFromFSFuncs(page, funcMap, tmplSubFS, files...)
 	}
 
+	// individual templates for when routes return partial elements and now full page
 	r.AddFromFSFuncs("login", funcMap, tmplSubFS, "pages/login.tmpl", "partials/meta.tmpl", "partials/fail.tmpl")
 	r.AddFromFSFuncs("fail", funcMap, tmplSubFS, "partials/fail.tmpl")
 	r.AddFromFSFuncs("toast_success", funcMap, tmplSubFS, "partials/toast_success.tmpl")
 	r.AddFromFSFuncs("toast_error", funcMap, tmplSubFS, "partials/toast_error.tmpl")
 	r.AddFromFSFuncs("rule_table_row", funcMap, tmplSubFS, "partials/rule_table_row.tmpl", "partials/toast_success.tmpl")
 	r.AddFromFSFuncs("logs_view", funcMap, tmplSubFS, "partials/logs_view.tmpl")
-	r.AddFromFSFuncs("interface_settings", funcMap, tmplSubFS, "partials/interface_settings.tmpl")
+	r.AddFromFSFuncs("interface_popup", funcMap, tmplSubFS, "partials/interface_popup.tmpl")
+	r.AddFromFSFuncs("interface_table", funcMap, tmplSubFS, "partials/interface_table.tmpl")
 	r.AddFromFSFuncs("interface_table_row", funcMap, tmplSubFS, "partials/interface_table_row.tmpl", "partials/toast_success.tmpl")
 	r.AddFromFSFuncs("analytics_refresh", funcMap, tmplSubFS, "partials/analytics_refresh.tmpl", "partials/interface_stats.tmpl", "partials/global_stats.tmpl")
 	return r, nil

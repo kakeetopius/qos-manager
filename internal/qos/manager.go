@@ -236,6 +236,11 @@ func (m *QoSManager) GetLowPriorityRules() ([]Rule, error) {
 	return rules, nil
 }
 
+func (m *QoSManager) RefreshInterfaces() error {
+	clear(m.Ifaces)
+	return m.getNetInterfaces()
+}
+
 func (m *QoSManager) getNetInterfaces() error {
 	ifaces, err := net.Interfaces()
 	if err != nil {

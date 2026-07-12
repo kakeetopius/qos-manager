@@ -104,6 +104,15 @@ type ClassPercentages struct {
 	DefaultClass  float32
 }
 
+func (p ClassPercentages) String() string {
+	return fmt.Sprintf(
+		"High: %.1f%%, Default: %.1f%%, Low: %.1f%%",
+		p.HighPrioClass,
+		p.DefaultClass,
+		p.LowPrioClass,
+	)
+}
+
 func (p ClassPercentages) Verify() error {
 	err := isValidPercentage(p.HighPrioClass)
 	if err != nil {
@@ -133,7 +142,7 @@ func (p ClassPercentages) Equal(q ClassPercentages) bool {
 	return true
 }
 
-func ClassPercentagesFromStrings(highStr, lowStr, defaultPercentageStr string) (ClassPercentages, error) {
+func ClassPercentagesFromStrings(highStr, defaultPercentageStr, lowStr string) (ClassPercentages, error) {
 	high, err := strconv.ParseFloat(highStr, 32)
 	if err != nil {
 		return ClassPercentages{}, err

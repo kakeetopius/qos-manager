@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kakeetopius/qosm/internal/core/htb"
+	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
@@ -121,9 +122,10 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 		}
 
 		err = m.Classifier.DeleteIfaces([]string{iface.Name})
-	}
-	if err != nil {
-		return err
+		var errNotExists nft.ErrSetElementNotExists
+		if err != nil && !errors.As(err, &errNotExists) {
+			return err
+		}
 	}
 
 	err = db.DisableInterface(m.DB, iface.Name)
