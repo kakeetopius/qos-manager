@@ -2,6 +2,8 @@ package htb
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
@@ -94,4 +96,78 @@ func (f ErrClassNotFound) Error() string {
 
 func (f ErrFilterNotFound) Error() string {
 	return "filter " + f.FilterName + " not found"
+}
+
+type ClassPercentages struct {
+	HighPrioClass float32
+	LowPrioClass  float32
+	DefaultClass  float32
+}
+
+func (p ClassPercentages) Verify() error {
+	err := isValidPercentage(p.HighPrioClass)
+	if err != nil {
+		return err
+	}
+	err = isValidPercentage(p.LowPrioClass)
+	if err != nil {
+		return err
+	}
+	err = isValidPercentage(p.DefaultClass)
+	if err != nil {
+		return err
+	}
+
+	if p.DefaultClass+p.HighPrioClass+p.LowPrioClass != 100 {
+		return fmt.Errorf("invalid percentages: %v %v %v. Percentages do not add up to 100", p.HighPrioClass, p.DefaultClass, p.LowPrioClass)
+	}
+
+	return nil
+}
+
+func (p ClassPercentages) Equal(q ClassPercentages) bool {
+	if p.HighPrioClass != q.HighPrioClass || p.DefaultClass != q.DefaultClass || p.LowPrioClass != q.LowPrioClass {
+		return false
+	}
+
+	return true
+}
+
+func ClassPercentagesFromStrings(highStr, lowStr, defaultPercentageStr string) (ClassPercentages, error) {
+	high, err := strconv.ParseFloat(highStr, 32)
+	if err != nil {
+		return ClassPercentages{}, err
+	}
+
+	low, err := strconv.ParseFloat(lowStr, 32)
+	if err != nil {
+		return ClassPercentages{}, err
+	}
+
+	defaultPercentage, err := strconv.ParseFloat(defaultPercentageStr, 32)
+	if err != nil {
+		return ClassPercentages{}, err
+	}
+
+	return ClassPercentages{
+		HighPrioClass: float32(high),
+		LowPrioClass:  float32(low),
+		DefaultClass:  float32(defaultPercentage),
+	}, nil
+}
+
+func DefaultClassPercentages() ClassPercentages {
+	return ClassPercentages{
+		HighPrioClass: 50,
+		LowPrioClass:  40,
+		DefaultClass:  10,
+	}
+}
+
+func isValidPercentage(n float32) error {
+	if n > 100 || n < 0 {
+		return fmt.Errorf("invalid percentage: %v", n)
+	}
+
+	return nil
 }

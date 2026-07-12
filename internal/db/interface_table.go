@@ -4,15 +4,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/kakeetopius/qosm/internal/core/htb"
 )
 
 var ErrNotExists = errors.New("requested object does not exist in the database")
 
 type DBInterface struct {
-	IfaceIndex int
-	Name       string
-	Rate       uint32
-	Enabled    bool
+	IfaceIndex  int
+	Name        string
+	Rate        uint32
+	Percentages htb.ClassPercentages
+	Enabled     bool
 }
 
 func AddInterface(db *sql.DB, iface DBInterface) error {
@@ -22,14 +25,20 @@ func AddInterface(db *sql.DB, iface DBInterface) error {
 			name,
 			if_index,
 			rate,
-			enabled
+			enabled,
+			high_class_percentage,
+			default_class_percentage,
+			low_class_percentage
 		)
-		VALUES (?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`,
 		iface.Name,
 		iface.IfaceIndex,
 		iface.Rate,
 		iface.Enabled,
+		iface.Percentages.HighPrioClass,
+		iface.Percentages.DefaultClass,
+		iface.Percentages.LowPrioClass,
 	)
 
 	return err
@@ -67,7 +76,7 @@ func CheckInterfaceExistsByIndex(db *sql.DB, index int) (bool, error) {
 
 func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 	rows, err := db.Query(`
-		SELECT if_index, name, rate,enabled
+		SELECT if_index, name, rate,enabled, high_class_percentage, default_class_percentage, low_class_percentage
 		FROM interfaces
 	`)
 	if err != nil {
@@ -80,7 +89,12 @@ func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 	for rows.Next() {
 		var iface DBInterface
-		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
+		err = rows.Scan(
+			&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled,
+			&iface.Percentages.HighPrioClass,
+			&iface.Percentages.DefaultClass,
+			&iface.Percentages.LowPrioClass,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -96,9 +110,26 @@ func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 	return interfaces, nil
 }
 
+func GetInterfaceClassPercentages(db *sql.DB, ifaceName string) (htb.ClassPercentages, error) {
+	row := db.QueryRow(`
+		SELECT high_class_percentage, default_class_percentage, low_class_percentage
+		FROM interfaces
+		WHERE name = ?
+	`, ifaceName)
+
+	percentages := htb.ClassPercentages{}
+
+	err := row.Scan(&percentages.HighPrioClass, &percentages.DefaultClass, &percentages.LowPrioClass)
+	if err != nil {
+		return htb.ClassPercentages{}, err
+	}
+
+	return percentages, nil
+}
+
 func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 	rows, err := db.Query(`
-		SELECT if_index, name, rate, enabled
+		SELECT if_index, name, rate, enabled, high_class_percentage, default_class_percentage, low_class_percentage
 		FROM interfaces
 		WHERE enabled = 1
 	`)
@@ -112,7 +143,12 @@ func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 	for rows.Next() {
 		var iface DBInterface
-		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
+		err = rows.Scan(
+			&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled,
+			&iface.Percentages.HighPrioClass,
+			&iface.Percentages.DefaultClass,
+			&iface.Percentages.LowPrioClass,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +166,7 @@ func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 	row := db.QueryRow(`
-		SELECT if_index, name, rate, enabled 
+		SELECT if_index, name, rate, enabled, high_class_percentage, default_class_percentage, low_class_percentage
 		FROM interfaces
 		WHERE name = ?
 	`, name)
@@ -138,7 +174,12 @@ func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 	var iface DBInterface
 	var enabled int
 
-	err := row.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
+	err := row.Scan(
+		&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled,
+		&iface.Percentages.HighPrioClass,
+		&iface.Percentages.DefaultClass,
+		&iface.Percentages.LowPrioClass,
+	)
 	if err != nil {
 		return DBInterface{}, err
 	}
@@ -149,7 +190,7 @@ func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 
 func InterfaceByIndex(db *sql.DB, index int) (DBInterface, error) {
 	row := db.QueryRow(`
-		SELECT if_index, name, rate, enabled
+		SELECT if_index, name, rate, enabled, high_class_percentage, default_class_percentage, low_class_percentage
 		FROM interfaces
 		WHERE if_index = ?
 	`, index)
@@ -157,7 +198,12 @@ func InterfaceByIndex(db *sql.DB, index int) (DBInterface, error) {
 	var iface DBInterface
 	var enabled int
 
-	err := row.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
+	err := row.Scan(
+		&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled,
+		&iface.Percentages.HighPrioClass,
+		&iface.Percentages.DefaultClass,
+		&iface.Percentages.LowPrioClass,
+	)
 	if err != nil {
 		return DBInterface{}, err
 	}
@@ -196,6 +242,18 @@ func ChangeInterfaceRate(db *sql.DB, name string, rate uint32) error {
 	return updateInterfaceField(db, name, "rate", rate)
 }
 
+func ChangeInterfaceClassPercentages(db *sql.DB, name string, percentages htb.ClassPercentages) error {
+	err := updateInterfaceField(db, name, "high_class_percentage", percentages.HighPrioClass)
+	if err != nil {
+		return err
+	}
+	err = updateInterfaceField(db, name, "default_class_percentage", percentages.DefaultClass)
+	if err != nil {
+		return err
+	}
+	return updateInterfaceField(db, name, "low_class_percentage", percentages.LowPrioClass)
+}
+
 func InterfaceIsEnabled(db *sql.DB, name string) (bool, error) {
 	enabled, err := GetInterfaceField(db, name, "enabled")
 	if err != nil {
@@ -210,10 +268,13 @@ func InterfaceIsEnabled(db *sql.DB, name string) (bool, error) {
 
 func GetInterfaceField(db *sql.DB, ifaceName string, field string) (any, error) {
 	allowed := map[string]struct{}{
-		"if_index": {},
-		"name":     {},
-		"enabled":  {},
-		"rate":     {},
+		"if_index":                 {},
+		"name":                     {},
+		"enabled":                  {},
+		"rate":                     {},
+		"high_class_percentage":    {},
+		"default_class_percentage": {},
+		"low_class_percentage":     {},
 	}
 	if _, ok := allowed[field]; !ok {
 		return nil, fmt.Errorf("db: unknown interfaces table field: %v", field)
@@ -243,10 +304,13 @@ func GetInterfaceField(db *sql.DB, ifaceName string, field string) (any, error) 
 
 func updateInterfaceField(db *sql.DB, ifaceName string, field string, value any) error {
 	allowed := map[string]struct{}{
-		"if_index": {},
-		"name":     {},
-		"enabled":  {},
-		"rate":     {},
+		"if_index":                 {},
+		"name":                     {},
+		"enabled":                  {},
+		"rate":                     {},
+		"high_class_percentage":    {},
+		"default_class_percentage": {},
+		"low_class_percentage":     {},
 	}
 	if _, ok := allowed[field]; !ok {
 		return fmt.Errorf("db: unknown interfaces table field: %v", field)

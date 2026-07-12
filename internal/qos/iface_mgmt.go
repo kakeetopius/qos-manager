@@ -3,13 +3,14 @@ package qos
 import (
 	"errors"
 	"fmt"
-	"net"
 
 	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
-func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err error) {
+const DEFAULTRATE uint32 = 100
+
+func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPercentages *htb.ClassPercentages) (err error) {
 	if m.Classifier == nil && !m.DaemonMode {
 		return ErrClassifierNotInitialised
 	}
@@ -18,8 +19,23 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		m.Ifaces = make(map[string]Interface)
 	}
 
-	if rate == 0 {
+	if rate == nil {
+		r := DEFAULTRATE
+		rate = &r
+	}
+
+	if *rate == 0 {
 		return fmt.Errorf("invalid rate: %v", rate)
+	}
+
+	if classPercentages == nil {
+		percentages := htb.DefaultClassPercentages()
+		classPercentages = &percentages
+	}
+
+	err = classPercentages.Verify()
+	if err != nil {
+		return err
 	}
 
 	defer func() {
@@ -32,19 +48,14 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 
 	iface, found := m.Ifaces[ifaceName]
 	if !found {
-		netIface, neterr := net.InterfaceByName(ifaceName)
-		if neterr != nil {
-			return neterr
-		}
-		iface.Interface = *netIface
+		return fmt.Errorf("unknown interface: %v", ifaceName)
 	}
-	iface.ShapingRate = rate
 
 	if m.DaemonMode {
-		err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate)
+		err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), *rate, *classPercentages)
 	} else {
-		err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, m.Logger)
-		if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+		err = htb.InitHTBOnIface(m.TcConn, iface.Index, *rate, *classPercentages, m.Logger)
+		if err != nil {
 			return err
 		}
 
@@ -55,16 +66,19 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		return err
 	}
 	err = db.AddInterface(m.DB, db.DBInterface{
-		Name:       iface.Name,
-		IfaceIndex: iface.Index,
-		Enabled:    true,
-		Rate:       rate,
+		Name:        iface.Name,
+		IfaceIndex:  iface.Index,
+		Enabled:     true,
+		Rate:        *rate,
+		Percentages: *classPercentages,
 	})
 	if err != nil {
 		return err
 	}
 
 	iface.QoSEnabled = true
+	iface.ShapingRate = *rate
+	iface.Percentages = *classPercentages
 	m.Ifaces[iface.Name] = iface
 
 	return nil
@@ -85,20 +99,14 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 
 	iface, found := m.Ifaces[ifaceName]
 	if !found {
-		netIface, netErr := net.InterfaceByName(ifaceName)
-		if netErr != nil {
-			return netErr
-		}
-		iface = Interface{
-			Interface: *netIface,
-		}
+		return fmt.Errorf("unknown interface: %v", ifaceName)
 	}
 
 	if m.DaemonMode {
 		err = m.sendDisableIfaceRequest(ifaceName, int32(iface.Index))
 	} else {
 		err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
-		if err != nil {
+		if err != nil && !errors.Is(err, htb.ErrQdiscNotFound) {
 			return err
 		}
 
@@ -134,13 +142,7 @@ func (m *QoSManager) ChangeInterfaceRate(ifaceName string, rate uint32) (err err
 
 	iface, found := m.Ifaces[ifaceName]
 	if !found {
-		netIface, netErr := net.InterfaceByName(ifaceName)
-		if netErr != nil {
-			return netErr
-		}
-		iface = Interface{
-			Interface: *netIface,
-		}
+		return fmt.Errorf("unknown interface: %v", ifaceName)
 	}
 
 	if iface.QoSEnabled {
@@ -159,9 +161,9 @@ func (m *QoSManager) ChangeInterfaceRate(ifaceName string, rate uint32) (err err
 
 		// create new qdisc with new rate
 		if m.DaemonMode {
-			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate)
+			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate, iface.Percentages)
 		} else {
-			err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, m.Logger)
+			err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, iface.Percentages, m.Logger)
 			if err != nil && !errors.Is(err, htb.ErrQdisExists) {
 				return err
 			}
@@ -178,6 +180,64 @@ func (m *QoSManager) ChangeInterfaceRate(ifaceName string, rate uint32) (err err
 	return nil
 }
 
+func (m *QoSManager) ChangeClassPercentages(ifaceName string, newPercentages htb.ClassPercentages) (err error) {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
+
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(m.DB, err, "")
+		} else {
+			addClassPercentagesChangedLog(m.DB, ifaceName, newPercentages)
+		}
+	}()
+
+	err = newPercentages.Verify()
+	if err != nil {
+		return err
+	}
+
+	iface, found := m.Ifaces[ifaceName]
+	if !found {
+		return fmt.Errorf("unknown interface: %v", ifaceName)
+	}
+
+	if iface.QoSEnabled {
+		// first remove qdisc from interface
+		if m.DaemonMode {
+			err = m.sendDisableIfaceRequest(ifaceName, int32(iface.Index))
+		} else {
+			err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
+			if err != nil {
+				return err
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		// create new qdisc with new rate
+		if m.DaemonMode {
+			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), iface.ShapingRate, newPercentages)
+		} else {
+			err = htb.InitHTBOnIface(m.TcConn, iface.Index, iface.ShapingRate, newPercentages, m.Logger)
+			if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+				return err
+			}
+		}
+	}
+
+	err = db.ChangeInterfaceClassPercentages(m.DB, ifaceName, newPercentages)
+	if err != nil {
+		return err
+	}
+	iface.Percentages = newPercentages
+	m.Ifaces[ifaceName] = iface
+
+	return nil
+}
+
 func (m *QoSManager) InitSavedInterfaceSettings() error {
 	if m.Classifier == nil && !m.DaemonMode {
 		return ErrClassifierNotInitialised
@@ -188,7 +248,7 @@ func (m *QoSManager) InitSavedInterfaceSettings() error {
 	}
 
 	for _, iface := range enabledIfaces {
-		err = m.EnableTcOnInterface(iface.Name, iface.Rate)
+		err = m.EnableTcOnInterface(iface.Name, &iface.Rate, &iface.Percentages)
 		if err != nil {
 			return err
 		}

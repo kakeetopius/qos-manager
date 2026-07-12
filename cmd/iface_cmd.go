@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/qos"
@@ -63,7 +64,11 @@ func IfaceEnableCmd() *cobra.Command {
 			}
 
 			for _, iface := range args {
-				err = qosManager.EnableTcOnInterface(iface, 1000)
+				err = qosManager.EnableTcOnInterface(iface, nil, &htb.ClassPercentages{
+					HighPrioClass: 50,
+					DefaultClass:  40,
+					LowPrioClass:  10,
+				})
 				if err != nil {
 					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}

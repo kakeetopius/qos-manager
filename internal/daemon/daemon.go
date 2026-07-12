@@ -266,9 +266,14 @@ func (d *Daemon) handleEnableIfaceRequest(request *protobuf.Request) error {
 		ifIndex := iface.GetIfindex()
 		ifName := iface.GetName()
 		rate := iface.GetRate()
+		percentages := htb.ClassPercentages{
+			HighPrioClass: iface.GetHighClassPercentage(),
+			DefaultClass:  iface.GetDefaultClassPercentage(),
+			LowPrioClass:  iface.GetLowClassPercentage(),
+		}
 
-		err := htb.InitHTBOnIface(d.TcConn, int(ifIndex), rate, d.Logger)
-		if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+		err := htb.InitHTBOnIface(d.TcConn, int(ifIndex), rate, percentages, d.Logger)
+		if err != nil {
 			return err
 		}
 

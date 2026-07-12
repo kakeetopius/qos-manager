@@ -2,6 +2,7 @@
 package htb
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/florianl/go-tc"
@@ -12,14 +13,23 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func CreateQdisc(tcnl *tc.Tc, ifIndex int, totalRate uint32, logger *slog.Logger) (HTBObjects, error) {
+func CreateQdisc(tcnl *tc.Tc, ifIndex int, totalRate uint32, percentages ClassPercentages, logger *slog.Logger) (HTBObjects, error) {
 	htbIface := HTBObjects{}
 	err := tcnl.SetOption(netlink.ExtendedAcknowledge, true) // for better error messages
 	if err != nil {
 		return htbIface, err
 	}
 
-	highClassRate, defaultClassRate, lowClassRate := getClassRates(totalRate)
+	err = percentages.Verify()
+	if err != nil {
+		return HTBObjects{}, err
+	}
+
+	if totalRate == 0 {
+		return HTBObjects{}, fmt.Errorf("invalid rate: %v", totalRate)
+	}
+
+	highClassRate, defaultClassRate, lowClassRate := getClassRates(totalRate, percentages)
 
 	util.Debug(logger, "htb: adding root qdisc", "name", "root")
 	rootHtbQdisc, err := addRootQdisc(tcnl, ifIndex)

@@ -170,14 +170,17 @@ func (b0 Service_builder) Build() *Service {
 }
 
 type Interface struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
-	xxx_hidden_Ifindex     int32                  `protobuf:"varint,2,opt,name=ifindex"`
-	xxx_hidden_Rate        uint32                 `protobuf:"varint,3,opt,name=rate"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                             protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name                   *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Ifindex                int32                  `protobuf:"varint,2,opt,name=ifindex"`
+	xxx_hidden_Rate                   uint32                 `protobuf:"varint,3,opt,name=rate"`
+	xxx_hidden_HighClassPercentage    float32                `protobuf:"fixed32,4,opt,name=high_class_percentage,json=highClassPercentage"`
+	xxx_hidden_DefaultClassPercentage float32                `protobuf:"fixed32,5,opt,name=default_class_percentage,json=defaultClassPercentage"`
+	xxx_hidden_LowClassPercentage     float32                `protobuf:"fixed32,6,opt,name=low_class_percentage,json=lowClassPercentage"`
+	XXX_raceDetectHookData            protoimpl.RaceDetectHookData
+	XXX_presence                      [1]uint32
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 func (x *Interface) Reset() {
@@ -229,19 +232,55 @@ func (x *Interface) GetRate() uint32 {
 	return 0
 }
 
+func (x *Interface) GetHighClassPercentage() float32 {
+	if x != nil {
+		return x.xxx_hidden_HighClassPercentage
+	}
+	return 0
+}
+
+func (x *Interface) GetDefaultClassPercentage() float32 {
+	if x != nil {
+		return x.xxx_hidden_DefaultClassPercentage
+	}
+	return 0
+}
+
+func (x *Interface) GetLowClassPercentage() float32 {
+	if x != nil {
+		return x.xxx_hidden_LowClassPercentage
+	}
+	return 0
+}
+
 func (x *Interface) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *Interface) SetIfindex(v int32) {
 	x.xxx_hidden_Ifindex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *Interface) SetRate(v uint32) {
 	x.xxx_hidden_Rate = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+}
+
+func (x *Interface) SetHighClassPercentage(v float32) {
+	x.xxx_hidden_HighClassPercentage = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+}
+
+func (x *Interface) SetDefaultClassPercentage(v float32) {
+	x.xxx_hidden_DefaultClassPercentage = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *Interface) SetLowClassPercentage(v float32) {
+	x.xxx_hidden_LowClassPercentage = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *Interface) HasName() bool {
@@ -265,6 +304,27 @@ func (x *Interface) HasRate() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *Interface) HasHighClassPercentage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *Interface) HasDefaultClassPercentage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *Interface) HasLowClassPercentage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *Interface) ClearName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Name = nil
@@ -280,12 +340,30 @@ func (x *Interface) ClearRate() {
 	x.xxx_hidden_Rate = 0
 }
 
+func (x *Interface) ClearHighClassPercentage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_HighClassPercentage = 0
+}
+
+func (x *Interface) ClearDefaultClassPercentage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_DefaultClassPercentage = 0
+}
+
+func (x *Interface) ClearLowClassPercentage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_LowClassPercentage = 0
+}
+
 type Interface_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	Name    *string
-	Ifindex *int32
-	Rate    *uint32
+	Name                   *string
+	Ifindex                *int32
+	Rate                   *uint32
+	HighClassPercentage    *float32
+	DefaultClassPercentage *float32
+	LowClassPercentage     *float32
 }
 
 func (b0 Interface_builder) Build() *Interface {
@@ -293,16 +371,28 @@ func (b0 Interface_builder) Build() *Interface {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Ifindex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_Ifindex = *b.Ifindex
 	}
 	if b.Rate != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_Rate = *b.Rate
+	}
+	if b.HighClassPercentage != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		x.xxx_hidden_HighClassPercentage = *b.HighClassPercentage
+	}
+	if b.DefaultClassPercentage != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_DefaultClassPercentage = *b.DefaultClassPercentage
+	}
+	if b.LowClassPercentage != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_LowClassPercentage = *b.LowClassPercentage
 	}
 	return m0
 }
@@ -1639,11 +1729,14 @@ const file_qosm_proto_rawDesc = "" +
 	"qosm.proto\x12\aqosm.v1\"9\n" +
 	"\aService\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\x05R\x04port\x12\x1a\n" +
-	"\bprotocol\x18\x02 \x01(\x05R\bprotocol\"M\n" +
+	"\bprotocol\x18\x02 \x01(\x05R\bprotocol\"\xed\x01\n" +
 	"\tInterface\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aifindex\x18\x02 \x01(\x05R\aifindex\x12\x12\n" +
-	"\x04rate\x18\x03 \x01(\rR\x04rate\"9\n" +
+	"\x04rate\x18\x03 \x01(\rR\x04rate\x122\n" +
+	"\x15high_class_percentage\x18\x04 \x01(\x02R\x13highClassPercentage\x128\n" +
+	"\x18default_class_percentage\x18\x05 \x01(\x02R\x16defaultClassPercentage\x120\n" +
+	"\x14low_class_percentage\x18\x06 \x01(\x02R\x12lowClassPercentage\"9\n" +
 	"\bIPPrefix\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\fR\x02ip\x12\x1d\n" +
 	"\n" +

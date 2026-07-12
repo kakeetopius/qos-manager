@@ -19,6 +19,9 @@ message Interface {
   string name = 1;
   int32 ifindex = 2;
   uint32 rate = 3;
+  float high_class_percentage = 4;
+  float default_class_percentage = 5;
+  float low_class_percentage = 6;
 }
 
 message IPPrefix {

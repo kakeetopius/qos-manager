@@ -7,6 +7,7 @@ import (
 	"net/netip"
 
 	"github.com/florianl/go-tc"
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/priority"
@@ -255,6 +256,7 @@ func (m *QoSManager) getNetInterfaces() error {
 		}
 
 		var rate uint32
+		var percentages htb.ClassPercentages
 		if exists {
 			dbrate, err := db.GetInterfaceField(m.DB, iface.Name, "rate")
 			if err != nil {
@@ -262,12 +264,20 @@ func (m *QoSManager) getNetInterfaces() error {
 			}
 			rate64 := dbrate.(int64)
 			rate = uint32(rate64)
+
+			percentages, err = db.GetInterfaceClassPercentages(m.DB, iface.Name)
+			if err != nil {
+				return err
+			}
+		} else {
+			percentages = htb.DefaultClassPercentages()
 		}
 
 		m.Ifaces[iface.Name] = Interface{
 			Interface:   iface,
 			LinkSpeed:   speed,
 			ShapingRate: rate,
+			Percentages: percentages,
 		}
 	}
 

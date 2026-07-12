@@ -67,6 +67,9 @@ func SetUp(db *sql.DB) error {
 		if_index INTEGER NOT NULL UNIQUE,
 		name TEXT NOT NULL UNIQUE,
 		rate INTEGER NOT NULL,
+		high_class_percentage INTEGER NOT NULL,
+		low_class_percentage INTEGER NOT NULL,
+		default_class_percentage INTEGER NOT NULL,
 		enabled BOOLEAN NOT NULL
 	);
 

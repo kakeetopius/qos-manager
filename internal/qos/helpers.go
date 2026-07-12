@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/protobuf"
@@ -75,14 +76,17 @@ func (m *QoSManager) sendDeleteServiceRequest(servs []service.Service, prio prio
 	return m.sendRequestToDaemon(request)
 }
 
-func (m *QoSManager) sendEnableIfaceRequest(ifaceName string, ifIndex int32, shapingRate uint32) error {
+func (m *QoSManager) sendEnableIfaceRequest(ifaceName string, ifIndex int32, shapingRate uint32, percentages htb.ClassPercentages) error {
 	request := protobuf.Request_builder{
 		EnableIfaces: protobuf.EnableIfaces_builder{
 			Ifaces: []*protobuf.Interface{
 				protobuf.Interface_builder{
-					Name:    &ifaceName,
-					Ifindex: &ifIndex,
-					Rate:    &shapingRate,
+					Name:                   &ifaceName,
+					Ifindex:                &ifIndex,
+					Rate:                   &shapingRate,
+					HighClassPercentage:    &percentages.HighPrioClass,
+					LowClassPercentage:     &percentages.LowPrioClass,
+					DefaultClassPercentage: &percentages.DefaultClass,
 				}.Build(),
 			},
 		}.Build(),
@@ -243,6 +247,21 @@ func addRateChangedLog(dbCon *sql.DB, iface string, newRate uint32) error {
 		db.Log{
 			EventType:   "TC",
 			Description: fmt.Sprintf("changed rate for interface %s to %v", iface, newRate),
+		},
+	)
+}
+
+func addClassPercentagesChangedLog(dbCon *sql.DB, iface string, newPercentages htb.ClassPercentages) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType: "TC",
+			Description: fmt.Sprintf(
+				"changed percentages for interface %s to high: %v, default: %v, low: %v", iface,
+				newPercentages.HighPrioClass,
+				newPercentages.DefaultClass,
+				newPercentages.LowPrioClass,
+			),
 		},
 	)
 }

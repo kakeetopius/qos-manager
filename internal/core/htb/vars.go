@@ -110,10 +110,10 @@ func calcBurst(megabitsPerSecond uint32) uint32 {
 	return xmitTime
 }
 
-func getClassRates(totalRate uint32) (highClassRate uint32, defaultClassRate uint32, lowClassRate uint32) {
-	highClassRate = uint32(float64(totalRate) * 50 / 100)
-	defaultClassRate = uint32(float64(totalRate) * 40 / 100)
-	lowClassRate = uint32(float64(totalRate) * 10 / 100)
+func getClassRates(totalRate uint32, percentages ClassPercentages) (highClassRate uint32, defaultClassRate uint32, lowClassRate uint32) {
+	highClassRate = uint32(float64(totalRate) * float64(percentages.HighPrioClass) / 100)
+	defaultClassRate = uint32(float64(totalRate) * float64(percentages.DefaultClass) / 100)
+	lowClassRate = uint32(float64(totalRate) * float64(percentages.LowPrioClass) / 100)
 
 	return
 }

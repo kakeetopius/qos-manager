@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
@@ -42,6 +43,9 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 	disableQoS := !enableQoS
 	rateStr := c.PostForm("rate")
 	autorate := c.PostForm("auto_rate") != ""
+	highPrioPercentage := c.PostForm("high_priority_percentage")
+	lowPrioPercentage := c.PostForm("low_priority_percentage")
+	defaultPercentage := c.PostForm("default_percentage")
 
 	var err error
 	defer func() {
@@ -49,6 +53,11 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 			c.Error(err)
 		}
 	}()
+
+	classPercentages, err := htb.ClassPercentagesFromStrings(highPrioPercentage, lowPrioPercentage, defaultPercentage)
+	if err != nil {
+		return
+	}
 
 	iface, found := app.QoSManager.Ifaces[ifaceName]
 	if !found {
@@ -78,7 +87,7 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 		rate = iface.LinkSpeed
 	}
 	if enableQoS && !iface.QoSEnabled {
-		err = app.QoSManager.EnableTcOnInterface(ifaceName, uint32(rate))
+		err = app.QoSManager.EnableTcOnInterface(ifaceName, &rate, &classPercentages)
 		if err != nil {
 			c.Error(err)
 			return
@@ -100,6 +109,19 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 		c.HTML(http.StatusOK, "interface_table_row", gin.H{
 			"Iface":   iface,
 			"Message": "Successfully changed rate for interface " + ifaceName + " to " + rateStr + " Mbps",
+		})
+		return
+	}
+
+	if !iface.Percentages.Equal(classPercentages) {
+		err = app.QoSManager.ChangeClassPercentages(iface.Name, classPercentages)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		c.HTML(http.StatusOK, "interface_table_row", gin.H{
+			"Iface":   iface,
+			"Message": "Successfully changed class percentages for interface " + ifaceName,
 		})
 		return
 	}

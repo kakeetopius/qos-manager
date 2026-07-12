@@ -1,5 +1,4 @@
 {{ define "interface_settings.tmpl" }}
-
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
 
 	<div class="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl">
@@ -35,6 +34,7 @@
 			hx-on::after-request="document.getElementById('modal').innerHTML=''">
 
 			<div class="space-y-6 p-6">
+
 				<!-- QoS -->
 				<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
 					<div class="flex items-center justify-between">
@@ -56,6 +56,7 @@
 					<h3 class="font-medium">
 						Bandwidth
 					</h3>
+
 					<div class="flex items-center justify-between text-sm">
 						<span class="text-zinc-400">
 							Detected Link Speed
@@ -66,9 +67,7 @@
 							{{ else }}
 							Unknown
 							{{ end }}
-
 						</span>
-
 					</div>
 
 					{{ if gt .LinkSpeed 0 }}
@@ -90,7 +89,7 @@
 							<input type="number" name="rate" {{ if gt .ShapingRate 0 }}value="{{ .ShapingRate }}" {{ end
 								}}
 								class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-								{{ if .AutoRate }}disabled{{ end }} {{ if not .QoSEnabled }} }}required{{ end }}>
+								{{ if .AutoRate }}disabled{{ end }} {{ if not .QoSEnabled }}required{{ end }}>
 							<span class="text-zinc-400">
 								Mbps
 							</span>
@@ -99,6 +98,63 @@
 						<p class="mt-2 text-xs text-zinc-500">
 							The maximum bandwidth available to HTB on this interface.
 						</p>
+
+					</div>
+
+				</div>
+
+				<!-- Class Bandwidth Allocation -->
+				<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-5 space-y-5">
+
+					<h3 class="font-medium">
+						Class Bandwidth Allocation
+					</h3>
+
+					<p class="text-sm text-zinc-400">
+						Specify the percentage of the shaping rate allocated to each traffic class. The three values
+						should total 100%.
+					</p>
+
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+						<div>
+							<label class="mb-2 block text-sm text-zinc-300">
+								High Priority
+							</label>
+
+							<div class="flex items-center gap-2">
+								<input type="number" name="high_priority_percentage" min="0" max="100" step="0.1"
+									value="{{ .Percentages.HighPrioClass }}"
+									class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20">
+								<span class="text-zinc-400">%</span>
+							</div>
+						</div>
+
+						<div>
+							<label class="mb-2 block text-sm text-zinc-300">
+								Default
+							</label>
+
+							<div class="flex items-center gap-2">
+								<input type="number" name="default_percentage" min="0" max="100" step="0.1"
+									value="{{ .Percentages.DefaultClass }}"
+									class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20">
+								<span class="text-zinc-400">%</span>
+							</div>
+						</div>
+
+						<div>
+							<label class="mb-2 block text-sm text-zinc-300">
+								Low Priority
+							</label>
+
+							<div class="flex items-center gap-2">
+								<input type="number" name="low_priority_percentage" min="0" max="100" step="0.1"
+									value="{{ .Percentages.LowPrioClass }}"
+									class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 outline-none transition focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20">
+								<span class="text-zinc-400">%</span>
+							</div>
+						</div>
 
 					</div>
 
@@ -117,6 +173,7 @@
 					Save Changes
 				</button>
 			</div>
+
 		</form>
 
 	</div>
