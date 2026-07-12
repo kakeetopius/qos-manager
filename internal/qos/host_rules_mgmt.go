@@ -98,9 +98,9 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err err
 		return Rule{}, err
 	}
 
-	addr, err := netip.ParsePrefix(ip)
+	addr, err := util.IPPrefixFromString(ip)
 	if err != nil {
-		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
+		return Rule{}, err
 	}
 
 	exists, err := db.CheckIPRuleExists(m.DB, addr.String())

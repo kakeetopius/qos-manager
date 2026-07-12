@@ -2,7 +2,9 @@
 package util
 
 import (
+	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/kakeetopius/qosm/internal/protobuf"
 )
@@ -67,4 +69,28 @@ func IPPrefixesToProtobufIPs(ips []netip.Prefix) []*protobuf.IPPrefix {
 		protobufIPs = append(protobufIPs, protoIP)
 	}
 	return protobufIPs
+}
+
+func IPPrefixFromString(ip string) (netip.Prefix, error) {
+	var addr netip.Prefix
+
+	if !strings.Contains(ip, "/") {
+		ipAddr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return netip.Prefix{}, err
+		}
+		prefixLen := 32
+		if ipAddr.Is6() {
+			prefixLen = 128
+		}
+		addr = netip.PrefixFrom(ipAddr, prefixLen)
+	} else {
+		ipAddr, err := netip.ParsePrefix(ip)
+		if err != nil {
+			return netip.Prefix{}, fmt.Errorf("invalid IP address: %v", ip)
+		}
+		addr = ipAddr
+	}
+
+	return addr, nil
 }
