@@ -1,7 +1,7 @@
 package qos
 
 import (
-	"net"
+	"fmt"
 
 	"github.com/kakeetopius/qosm/internal/core/htb"
 )
@@ -54,11 +54,10 @@ func (m *QoSManager) GetStats() (QoSStats, error) {
 func (m *QoSManager) GetIfaceStats(ifaceName string) (IfaceStats, error) {
 	iface, found := m.Ifaces[ifaceName]
 	if !found {
-		netIface, err := net.InterfaceByName(ifaceName)
-		if err != nil {
-			return IfaceStats{}, err
-		}
-		iface = Interface{Interface: *netIface}
+		return IfaceStats{}, fmt.Errorf("unknown interface: %s", ifaceName)
+	}
+	if !iface.QoSEnabled {
+		return IfaceStats{}, fmt.Errorf("QoS is not enabled on interface: %s", ifaceName)
 	}
 
 	ifaceQdisc, err := htb.GetQdisc(m.TcConn, iface.Index, m.Logger)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/qos"
 )
@@ -34,7 +35,9 @@ func (app *Server) InitQoSManager(opts qos.Options) error {
 		return err
 	}
 
-	err = qosManager.InitQoSClassifier(true)
+	err = qosManager.InitQoSClassifier(nft.NFTOpts{
+		CreateTableIfNotExists: true,
+	})
 	if err != nil {
 		return err
 	}

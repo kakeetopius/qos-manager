@@ -265,3 +265,15 @@ func (m *QoSManager) RestoreInterfaceStates() error {
 
 	return nil
 }
+
+func (m *QoSManager) EnabledInterfaces() []Interface {
+	enabled := make([]Interface, 0, len(m.Ifaces))
+
+	for _, iface := range m.Ifaces {
+		if iface.QoSEnabled {
+			enabled = append(enabled, iface)
+		}
+	}
+
+	return enabled
+}

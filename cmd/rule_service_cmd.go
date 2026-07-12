@@ -3,14 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
 
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/db"
-	"github.com/kakeetopius/qosm/internal/qos"
 	"github.com/kakeetopius/qosm/internal/service"
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -24,33 +19,13 @@ func ServiceRuleAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: true,
 			})
 			if err != nil {
 				return err
 			}
 			defer qosManager.Close()
-
-			if debug {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}))
-				qosManager.WithLogger(logger)
-			}
-
-			err = qosManager.InitQoSClassifier(true)
-			if err != nil {
-				return err
-			}
 
 			for _, serv := range args {
 				_, err := qosManager.AddServiceRule(serv, priority)
@@ -87,36 +62,14 @@ func ServiceRuleDeleteCmd() *cobra.Command {
 				}
 				toDelete = append(toDelete, serv)
 			}
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
 			})
-			if err != nil {
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
 			defer qosManager.Close()
-
-			if debug {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}))
-				qosManager.WithLogger(logger)
-			}
-
-			err = qosManager.InitQoSClassifier(false)
-			if err != nil {
-				if errors.Is(err, nft.ErrTableNotFound) {
-					return fmt.Errorf(" No tc rules added yet by qosm ")
-				}
-				return err
-			}
 
 			for _, serv := range toDelete {
 				err := qosManager.DeleteServiceRule(serv)
@@ -139,18 +92,10 @@ func ServiceRuleListCmd() *cobra.Command {
 		Short:   "List all QoS rules that match services",
 		Aliases: []string{"l"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
 			})
-			if err != nil {
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
 			defer qosManager.Close()
@@ -164,32 +109,7 @@ func ServiceRuleListCmd() *cobra.Command {
 				return err
 			}
 
-			highPrioTable := pterm.DefaultTable
-			highPrioTableData := pterm.TableData{
-				{"ID", "Service", "Created At"},
-			}
-			for _, rule := range highPrio {
-				highPrioTableData = append(highPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Target, rule.CreatedAt.String()})
-			}
-
-			lowPrioTable := pterm.DefaultTable
-			lowPrioTableData := pterm.TableData{
-				{"ID", "Service", "Created At"},
-			}
-			for _, rule := range lowPrio {
-				lowPrioTableData = append(lowPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Target, rule.CreatedAt.String()})
-			}
-
-			if len(highPrio) > 0 {
-				fmt.Println("High Priority Rules")
-				highPrioTable.WithHasHeader(true).WithHeaderRowSeparator("-").WithBoxed(true).WithData(highPrioTableData).Render()
-			}
-			if len(lowPrio) > 0 {
-				fmt.Println("Low Priority Rules")
-				lowPrioTable.WithHasHeader(true).WithHeaderRowSeparator("-").WithBoxed(true).WithData(lowPrioTableData).Render()
-			}
-
-			return nil
+			return printRules(highPrio, lowPrio)
 		},
 	}
 

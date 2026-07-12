@@ -2,7 +2,6 @@
 package qos
 
 import (
-	"log/slog"
 	"net"
 	"net/netip"
 
@@ -34,18 +33,16 @@ func NewManager(o Options) (*QoSManager, error) {
 	return &qosManager, nil
 }
 
-func (m *QoSManager) WithLogger(l *slog.Logger) {
-	m.Logger = l
-}
-
-func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
+func (m *QoSManager) InitQoSClassifier(nftOpts nft.NFTOpts) error {
 	if m.DaemonMode {
 		return nil
 	}
-	nftCtx, err := nft.NewNFTCtx(nft.NFTOpts{
-		CreateIfNotExists: createIfNotExists,
-		Logger:            m.Logger,
-	})
+	if !nftOpts.CreateTableIfNotExists {
+		return nil
+	}
+
+	nftOpts.Logger = m.Logger
+	nftCtx, err := nft.NewNFTCtx(nftOpts)
 	if err != nil {
 		return err
 	}

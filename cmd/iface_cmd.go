@@ -3,13 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
 
 	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/db"
-	"github.com/kakeetopius/qosm/internal/qos"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +20,7 @@ func IfaceCmd() *cobra.Command {
 		IfaceEnableCmd(),
 		IfaceDisableCmd(),
 		IfaceListCmd(),
+		IfaceStats(),
 	)
 	return &ifaceCmd
 }
@@ -35,33 +32,13 @@ func IfaceEnableCmd() *cobra.Command {
 		Aliases: []string{"e"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: true,
 			})
 			if err != nil {
 				return err
 			}
 			defer qosManager.Close()
-
-			if debug {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}))
-				qosManager.WithLogger(logger)
-			}
-
-			err = qosManager.InitQoSClassifier(true)
-			if err != nil {
-				return err
-			}
 
 			for _, iface := range args {
 				err = qosManager.EnableTcOnInterface(iface, nil, &htb.ClassPercentages{
@@ -89,35 +66,13 @@ func IfaceDisableCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
 			})
-			if err != nil {
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
 			defer qosManager.Close()
-
-			if debug {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}))
-				qosManager.WithLogger(logger)
-			}
-
-			err = qosManager.InitQoSClassifier(true)
-			if err != nil {
-				if !errors.Is(err, nft.ErrTableNotFound) {
-					return err
-				}
-			}
 
 			for _, iface := range args {
 				err = qosManager.DisableTcOnInterface(iface)
@@ -141,27 +96,44 @@ func IfaceListCmd() *cobra.Command {
 		Aliases: []string{"l"},
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
+			})
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
-			defer dbConn.Close()
-
-			enabledIfaces, err := db.GetEnabledInterfaces(dbConn)
-			if err != nil {
-				return err
-			}
+			enabledIfaces := qosManager.EnabledInterfaces()
 			if len(enabledIfaces) == 0 {
 				fmt.Println("No htb enabled interfaces.")
 				return nil
 			}
 
-			fmt.Println("Enabled Interfaces: ")
-			for _, iface := range enabledIfaces {
-				fmt.Println(iface.Name)
-			}
+			HeadingPrinter.Println("Enabled Interfaces")
+			return printIfaces(enabledIfaces)
+		},
+	}
 
-			return nil
+	return &ifacelistCmd
+}
+
+func IfaceStats() *cobra.Command {
+	ifacelistCmd := cobra.Command{
+		Use:     "stats",
+		Short:   "Get stats for an interface",
+		Aliases: []string{"s"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
+			})
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
+				return err
+			}
+			ifaceStats, err := qosManager.GetIfaceStats(args[0])
+			if err != nil {
+				return err
+			}
+			return printIfaceStats(&ifaceStats)
 		},
 	}
 

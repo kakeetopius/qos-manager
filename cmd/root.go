@@ -3,11 +3,15 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"path"
 
 	goversion "github.com/caarlos0/go-version"
+	"github.com/kakeetopius/qosm/internal/core/nft"
+	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/qos"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -63,6 +67,7 @@ func init() {
 		RestoreCmd(),
 		WebCmd(),
 		DaemonCmd(),
+		StatsCmd(),
 	)
 }
 
@@ -141,4 +146,32 @@ func buildVersion() goversion.Info {
 	return goversion.GetVersionInfo(
 		goversion.WithAppDetails("qosm", "A quality of service manager", ""),
 	)
+}
+
+func getQosManager(nftOpts nft.NFTOpts) (*qos.QoSManager, error) {
+	dbConn, err := db.NewConn(appConfig.GetString("db.path"))
+	if err != nil {
+		return nil, err
+	}
+
+	loggerOpts := slog.HandlerOptions{}
+	if debug {
+		loggerOpts.Level = slog.LevelDebug
+	}
+	qosManager, err := qos.NewManager(qos.Options{
+		DB:         dbConn,
+		DaemonMode: deamonMode,
+		DaemonSock: appConfig.GetString("daemon.sock"),
+		Logger:     slog.New(slog.NewTextHandler(os.Stderr, &loggerOpts)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = qosManager.InitQoSClassifier(nftOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return qosManager, nil
 }

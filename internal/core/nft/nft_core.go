@@ -299,7 +299,7 @@ func lookupQosTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error)
 		}
 	}
 
-	if opts.CreateIfNotExists {
+	if opts.CreateTableIfNotExists {
 		return createQosTable(conn, opts.Logger)
 	}
 
@@ -344,7 +344,7 @@ func lookupQosChain(conn *nftables.Conn, params chainParams, opts *NFTOpts) (Qos
 		}
 	}
 
-	if opts.CreateIfNotExists {
+	if opts.CreateTableIfNotExists {
 		return createQosChain(conn, params, opts.Logger)
 	}
 
@@ -393,7 +393,7 @@ func lookupQosRule(conn *nftables.Conn, params ruleParams, opts *NFTOpts) (*nfta
 		}
 	}
 
-	if qosRule == nil && opts.CreateIfNotExists {
+	if qosRule == nil && opts.CreateTableIfNotExists {
 		qosRule, err = createQosIPRule(conn, params, opts.Logger)
 		if err != nil {
 			return nil, err
@@ -507,7 +507,7 @@ func lookupQosSet(conn *nftables.Conn, params setParams, opts *NFTOpts) (*nftabl
 	nftSet, err := conn.GetSetByName(params.table, params.setName)
 
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && opts.CreateIfNotExists {
+		if errors.Is(err, os.ErrNotExist) && opts.CreateTableIfNotExists {
 			nftSet, err = createQosIPSet(conn, params, opts.Logger)
 			if err != nil {
 				return nil, err

@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/kakeetopius/qosm/internal/db"
-	"github.com/kakeetopius/qosm/internal/qos"
+	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +18,7 @@ func RuleCmd() *cobra.Command {
 	ruleCmd.AddCommand(
 		HostRuleCmd(),
 		ServiceRuleCmd(),
+		RuleListCmd(),
 		RuleFlushCmd(),
 	)
 	return &ruleCmd
@@ -63,25 +64,13 @@ func RuleFlushCmd() *cobra.Command {
 		Short:   "Flush all QoS rules.",
 		Aliases: []string{"f"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
-			qosManager, err := qos.NewManager(qos.Options{
-				DB:         dbConn,
-				DaemonMode: deamonMode,
-				DaemonSock: appConfig.GetString("daemon.sock"),
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
 			})
-			if err != nil {
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
 			defer qosManager.Close()
-			err = qosManager.InitQoSClassifier(true)
-			if err != nil {
-				return err
-			}
 
 			err = qosManager.DeleteAllRules()
 			if err != nil {
@@ -93,4 +82,33 @@ func RuleFlushCmd() *cobra.Command {
 	}
 
 	return &ruleFlushCmd
+}
+
+func RuleListCmd() *cobra.Command {
+	ruleListCmd := cobra.Command{
+		Use:     "list",
+		Short:   "List all QoS rules",
+		Aliases: []string{"l"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			qosManager, err := getQosManager(nft.NFTOpts{
+				CreateTableIfNotExists: false,
+			})
+			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
+				return err
+			}
+
+			highPrio, err := qosManager.GetHighPriorityRules()
+			if err != nil {
+				return err
+			}
+			lowPrio, err := qosManager.GetLowPriorityRules()
+			if err != nil {
+				return err
+			}
+
+			return printRules(highPrio, lowPrio)
+		},
+	}
+
+	return &ruleListCmd
 }

@@ -11,9 +11,9 @@ import (
 )
 
 type NFTOpts struct {
-	// CreateIfNotExists is used when looking up of the different nftables objects(table, sets, rules) to determine whether to create the objects if they are not present.
-	CreateIfNotExists bool
-	Logger            *slog.Logger
+	// CreateTableIfNotExists is used when looking up of the different nftables objects(table, sets, rules) to determine whether to create the objects if they are not present.
+	CreateTableIfNotExists bool
+	Logger                 *slog.Logger
 }
 
 type IfaceIndex int

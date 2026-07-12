@@ -58,8 +58,8 @@ func New(opts Options) (*Daemon, error) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &handlerOpts))
 
 	nftClassifier, err := nft.NewNFTCtx(nft.NFTOpts{
-		CreateIfNotExists: true,
-		Logger:            logger,
+		CreateTableIfNotExists: true,
+		Logger:                 logger,
 	})
 	if err != nil {
 		return nil, err
